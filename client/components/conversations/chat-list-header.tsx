@@ -1,6 +1,5 @@
 import React from "react";
 import { Menu, MessageSquarePlus } from "lucide-react";
-import { Avatar, AvatarFallback } from "../ui/avatar";
 
 const ContactHeader = () => {
   return (

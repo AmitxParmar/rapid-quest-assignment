@@ -12,7 +12,8 @@
 
   --grid-cols-main: 1fr 2.4fr;
 
-
+  --color-label: rgba(37, 211, 102);
+  --color-icon-ack: skyblue;
   --color-searchbar: rgba(255, 255, 255, 0.1);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
