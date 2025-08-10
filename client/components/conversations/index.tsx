@@ -5,7 +5,7 @@ import ChatList from "./chat-list";
 
 const Conversations = () => {
   return (
-    <div className="border-r flex flex-col max-h-screen z-20">
+    <div className="border-r overflow-auto flex flex-col md:max-h-screen z-20">
       <ContactHeader />
       <SearchBar />
       <ChatList />

@@ -40,8 +40,8 @@ const ChatListItem: React.FC<ChatListItemProps> = ({
 
   return (
     <div className="cursor-pointer my-2" onClick={handleContactClick}>
-      <div className="flex rounded-md mx-3   hover:bg-searchbar/50 transition-all">
-        <div className="min-w-fit px-4 pb-1 flex items-center">
+      <div className="flex rounded-md mx-1 md:mx-3 touch-auto hover:bg-searchbar/50 transition-all">
+        <div className="min-w-fit px-2 md:px-4 pb-1 flex items-center">
           <Avatar className="size-11">
             <AvatarFallback>?</AvatarFallback>
           </Avatar>
