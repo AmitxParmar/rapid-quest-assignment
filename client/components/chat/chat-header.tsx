@@ -1,4 +1,4 @@
-import { FileVideoCamera, Menu, Phone, Search } from "lucide-react";
+import { FileVideoCamera, Menu, Search } from "lucide-react";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 
 function ChatHeader() {

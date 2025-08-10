@@ -20,7 +20,7 @@ type ChatListItemProps = {
   };
   userInfo?: {
     id: string;
-    [key: string]: any;
+    [key: string]: string;
   };
   isContactsPage?: boolean;
   onClick?: (id: string) => void;

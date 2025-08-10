@@ -12,6 +12,14 @@ const currentChatUser = {
   name: "Alice",
 };
 
+// Helper to map messageStatus to allowed values for MessageStatus component
+function mapMessageStatus(
+  status: "sent" | "delivered" | "seen"
+): "sent" | "delivered" | "read" {
+  if (status === "seen") return "read";
+  return status;
+}
+
 // Dummy messages data
 const messages = [
   {
@@ -84,7 +92,9 @@ function ChatContainer() {
                       <span>
                         {message.senderId === userInfo?.id && (
                           <MessageStatus
-                            messageStatus={message.messageStatus}
+                            messageStatus={mapMessageStatus(
+                              message.messageStatus
+                            )}
                           />
                         )}
                       </span>
