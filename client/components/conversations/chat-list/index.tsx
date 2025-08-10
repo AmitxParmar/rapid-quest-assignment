@@ -48,7 +48,7 @@ const dummyUserInfo = {
 
 const ChatList = () => {
   return (
-    <div className="bg-search-input-container-background flex-auto over-flow-auto max-h-full custom-scrollbar">
+    <div className="flex-auto overflow-auto max-h-full custom-scrollbar">
       {dummyContacts?.map((contact) => (
         <ChatListItem
           key={contact.id}

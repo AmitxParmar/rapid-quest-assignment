@@ -11,8 +11,8 @@ function ChatHeader() {
             <AvatarFallback>?</AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
-            <span className="text-primary-strong">User Name</span>
-            <span className="text-muted-foreground text-sm">Online</span>
+            <span className="text-primary-strong">+91 12345 12334</span>
+            <span className="text-muted-foreground text-sm">online</span>
           </div>
         </div>
         <div className="flex items-center">
