@@ -1,0 +1,84 @@
+"use client";
+import { useEffect, useRef, useState } from "react";
+import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
+import { Mic, Plus, SendHorizontal, Smile } from "lucide-react";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+
+function MessageBar() {
+  const [message, setMessage] = useState("");
+  const [showEmojiPicker, setEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement; // Cast to HTMLElement
+      if (target.id !== "emoji-open") {
+        if (
+          emojiPickerRef.current &&
+          !emojiPickerRef.current.contains(target)
+        ) {
+          setEmojiPicker(false);
+        }
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [showEmojiPicker]);
+
+  // Handle Emoji Modal
+  const handleEmojiModal = (): void => setEmojiPicker(!showEmojiPicker);
+  const handleEmojiClick = (emoji: EmojiClickData) => {
+    setMessage((prevMsg) => (prevMsg += emoji.emoji));
+  };
+
+  return (
+    <div className="bg-message-bar shadow-sm rounded-full h-message-bar mx-3 mb-3 px-1.5 py-1 flex items-center gap-x-0.5 relative">
+      <div className="flex relative items-center h-full max-w-3xs">
+        <Button
+          size={"icon"}
+          className="size-10 flex bg-transparent text-primary items-center justify-center rounded-full hover:bg-searchbar/50 transition-colors duration-150"
+          tabIndex={0}
+        >
+          <Plus className="text-panel-header-icon cursor-pointer size-6" />
+        </Button>
+        <Button
+          size={"icon"}
+          className="size-10 flex bg-transparent text-primary items-center justify-center rounded-full hover:bg-searchbar/50 transition-colors duration-150"
+          id="emoji-open"
+          tabIndex={0}
+          onClick={handleEmojiModal}
+        >
+          <Smile className="text-panel-header-icon cursor-pointer size-6" />
+        </Button>
+        {showEmojiPicker && (
+          <div className="absolute bottom-24 left-16 z-40" ref={emojiPickerRef}>
+            <EmojiPicker onEmojiClick={handleEmojiClick} />
+          </div>
+        )}
+      </div>
+      <div className="w-full rounded-lg h-10 flex items-center">
+        <Input
+          type="text"
+          placeholder="Type a message"
+          className="border-none ring-0 placeholder:font-semibold placeholder:-tracking-normal px-1.5 placeholder:text-[15px] leading-1 focus:ring-0 focus-visible:ring-0 bg-transparent dark:bg-transparent focus:outline-none text-primary h-full rounded-lg w-full"
+          onChange={(e) => setMessage(e.target.value)}
+          value={message}
+        />
+      </div>
+      <div className="flex w-10 items-center justify-center">
+        <button className={`${message === "" ? "opacity-20" : null}`}>
+          {message.length ? (
+            <SendHorizontal className="text-panel-header-icon cursor-pointer text-xl" />
+          ) : (
+            <Mic className="text-panel-header-icon cursor-pointer text-xl" />
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default MessageBar;
