@@ -17,7 +17,7 @@ export default function QueryProvider({
         defaultOptions: {
           queries: {
             // Default cache time of 5 minutes
-            staleTime: 5 * 60 * 1000,
+
             // Keep data in cache for 10 minutes after component unmounts
             gcTime: 10 * 60 * 1000,
             // Retry failed requests 3 times

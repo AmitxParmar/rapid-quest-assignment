@@ -13,7 +13,7 @@ export function useConversations() {
     queryFn: () => fetchAllConversations(activeUser.waId),
     retry: 2,
     enabled: !!activeUser,
-    staleTime: 60 * 1000, // 1 minute
+
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,

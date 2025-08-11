@@ -54,7 +54,7 @@ export const getMessages = async (req: Request, res: Response) => {
     );
 
     const messages = await Message.find({ conversationId })
-      .sort({ timestamp: 1 }) // Oldest first for chat display
+      .sort({ timestamp: -1 }) // Oldest first for chat display
       .skip(skip)
       .limit(limit)
       .lean();

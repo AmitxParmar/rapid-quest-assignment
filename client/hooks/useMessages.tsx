@@ -20,7 +20,7 @@ export function useMessages(conversationId: string) {
     queryKey: ["messages", conversationId],
     queryFn: async ({ pageParam = 1 }) => {
       // getMessages should accept conversationId and page params
-      return getMessages(conversationId, { page: pageParam, limit: 15 });
+      return getMessages(conversationId, { page: pageParam, limit: 10 });
     },
     enabled: !!conversationId,
     getNextPageParam: (lastPage) => {
@@ -37,9 +37,9 @@ export function useMessages(conversationId: string) {
     },
     initialPageParam: 1,
     retry: 2,
-    staleTime: 60 * 1000, // 1 minute
+
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnReconnect: false,
   });
 }
