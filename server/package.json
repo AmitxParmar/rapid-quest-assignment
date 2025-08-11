@@ -2,12 +2,12 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.ts",
   "type": "commonjs",
   "scripts": {
-    "start": "node dist/server.js",
-    "build": "tsx",
-    "dev": "nodemon tsx server.ts"
+    "start": "tsx server.ts",
+    "build": "tsc",
+    "dev": "nodemon"
   },
   "keywords": [],
   "author": "",
