@@ -5,7 +5,7 @@ import { useConversations } from "@/hooks/useConversations";
 
 const ChatList = () => {
   const { data: conversations, isLoading, error } = useConversations();
-
+  console.log(error);
   return (
     <div className="flex-auto overflow-auto max-h-full custom-scrollbar">
       {isLoading ? (
