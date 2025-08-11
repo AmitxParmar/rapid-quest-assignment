@@ -4,7 +4,7 @@ import React from "react";
 function MessageStatus({
   messageStatus,
 }: {
-  messageStatus: "sent" | "delivered" | "read";
+  messageStatus: "sent" | "delivered" | "read" | "failed";
 }) {
   return (
     <>

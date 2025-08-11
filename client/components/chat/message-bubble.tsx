@@ -1,18 +1,22 @@
 import React from "react";
 import MessageStatus from "../common/message-status";
 import { calculateTime } from "@/utils/calculateTime";
-import { mapMessageStatus } from "@/utils";
 import { Avatar, AvatarFallback } from "../ui/avatar";
-import { Message } from "./chat-container";
-import { ChevronDown } from "lucide-react";
 
-interface IProps {
+import { ChevronDown } from "lucide-react";
+import { Message } from "@/types";
+
+type MessageBubbleProps = {
   message: Message;
   isSender: boolean;
   isReceiver: boolean;
-}
+};
 
-const MessageBubble = ({ message, isSender, isReceiver }: IProps) => (
+const MessageBubble = ({
+  message,
+  isSender,
+  isReceiver,
+}: MessageBubbleProps) => (
   <div
     className={`relative flex w-full mb-2 ${
       isSender ? "justify-end" : "justify-start"
@@ -73,21 +77,17 @@ const MessageBubble = ({ message, isSender, isReceiver }: IProps) => (
         {/* Optional: show name for receiver */}
         {isReceiver && (
           <div className="capitalize text-wa-info text-[11px] mt-1">
-            user name
+            {message.from}
           </div>
         )}
         <div className="flex gap-2 items-end ">
-          <span className="break-all leading-7">{message.message}</span>
+          <span className="break-all leading-7">{message.text}</span>
           <div className="flex gap-1 items-end text-wa-info">
             <span className="text-[11px] pt-1 min-w-fit">
-              {calculateTime(message.createdAt)}
+              {calculateTime(message?.createdAt)}
             </span>
             <span>
-              {isSender && (
-                <MessageStatus
-                  messageStatus={mapMessageStatus(message.messageStatus)}
-                />
-              )}
+              {isSender && <MessageStatus messageStatus={message?.status} />}
             </span>
           </div>
         </div>

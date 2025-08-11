@@ -4,8 +4,12 @@ import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { Mic, Plus, SendHorizontal, Smile } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { useSendMessage } from "@/hooks/useMessages";
+import { useUserStore } from "@/store/useUserStore";
 
-function MessageBar() {
+function MessageBar({}) {
+  const { activeUser, activeChatUser } = useUserStore((state) => state);
+  const { mutate: sendMessage } = useSendMessage();
   const [message, setMessage] = useState("");
   const [showEmojiPicker, setEmojiPicker] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
@@ -32,6 +36,18 @@ function MessageBar() {
   const handleEmojiModal = (): void => setEmojiPicker(!showEmojiPicker);
   const handleEmojiClick = (emoji: EmojiClickData) => {
     setMessage((prevMsg) => (prevMsg += emoji.emoji));
+  };
+
+  /* handle submit message */
+  const handleSubmit = () => {
+    const toWaId = activeChatUser?.waId;
+    if (!toWaId) return;
+    const data = {
+      from: activeUser.waId,
+      to: toWaId,
+      text: message,
+    };
+    sendMessage(data);
   };
 
   return (
@@ -71,7 +87,10 @@ function MessageBar() {
       <div className="flex w-10 items-center justify-center">
         <button className={`${message === "" ? "opacity-20" : null}`}>
           {message.length ? (
-            <SendHorizontal className="text-panel-header-icon cursor-pointer text-xl" />
+            <SendHorizontal
+              onClick={handleSubmit}
+              className="text-panel-header-icon cursor-pointer text-xl"
+            />
           ) : (
             <Mic className="text-panel-header-icon cursor-pointer text-xl" />
           )}

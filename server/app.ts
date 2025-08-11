@@ -3,6 +3,8 @@ import cors from "cors";
 import pino from "pino";
 import pinoHttp from "pino-http";
 import { env } from "./config/env";
+import conversationRoutes from "./routes/conversation.route";
+import messageRoutes from "./routes/message.route";
 
 const logger = pino();
 const app = express();
@@ -21,5 +23,8 @@ app.use(
     logger,
   })
 );
+
+app.use("/api/conversations", conversationRoutes);
+app.use("/api/messages", messageRoutes);
 
 export default app;

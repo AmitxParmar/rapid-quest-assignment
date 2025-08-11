@@ -1,4 +1,6 @@
-export const calculateTime = (inputDateStr: string): string | undefined => {
+export const calculateTime = (
+  inputDateStr: string | Date
+): string | undefined => {
   // Assuming the input date string is in UTC format
   const inputDate = new Date(inputDateStr);
 
