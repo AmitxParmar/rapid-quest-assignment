@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node dist/server.js",
-    "build": "tsc",
+    "build": "tsx",
     "dev": "nodemon tsx server.ts"
   },
   "keywords": [],
@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.3"
+    "@types/express": "^5.0.3",
+    "typescript": "^5.9.2"
   }
 }

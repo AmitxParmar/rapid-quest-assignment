@@ -17,7 +17,7 @@ type ChatListItemProps = {
 const ChatListItem: React.FC<ChatListItemProps> = React.memo(
   ({ data, isContactsPage = false, onClick }) => {
     const router = useRouter();
-    const { activeUser } = useUserStore((state) => state);
+    const { activeUser, setActiveChatUser } = useUserStore((state) => state);
 
     // Memoize other participant for performance
     const otherParticipant = useMemo(
@@ -41,20 +41,28 @@ const ChatListItem: React.FC<ChatListItemProps> = React.memo(
     );
 
     // Handlers
-    const handleContactClick = useCallback(
-      (e: React.MouseEvent) => {
-        // Prevent bubbling to inner click
-        if (onClick) onClick(data._id);
-      },
-      [onClick, data._id]
-    );
+    const handleContactClick = useCallback(() => {
+      // Prevent bubbling to inner click
+      if (onClick) onClick(data._id);
+    }, [onClick, data._id]);
 
+    /* handle conversation set active chat user object into state */
     const handleConversation = useCallback(
       (e: React.MouseEvent) => {
         e.stopPropagation();
-        router.push(`/conversation/${data.conversationId}`);
+        const other = getOtherParticipant(data?.participants, activeUser);
+        if (other) {
+          setActiveChatUser(other);
+        }
+        router.push(`/conversation/${data.conversationId}/${other?.waId}`);
       },
-      [router, data.conversationId]
+      [
+        router,
+        data.conversationId,
+        data?.participants,
+        activeUser,
+        setActiveChatUser,
+      ]
     );
 
     // Render message preview
@@ -107,7 +115,7 @@ const ChatListItem: React.FC<ChatListItemProps> = React.memo(
       <div className="cursor-pointer my-2" onClick={handleContactClick}>
         <div
           onClick={handleConversation}
-          className="flex rounded-md mx-1 md:mx-3 touch-auto hover:bg-searchbar/50 transition-all"
+          className="flex rounded-md  md:mx-3 touch-auto hover:bg-searchbar/50 transition-all"
         >
           <div className="min-w-fit px-2 md:px-4 pb-1 flex items-center">
             <Avatar className="size-11">

@@ -17,6 +17,7 @@ type UserStore = {
   users: User[];
   activeChatUser: User | null;
   setActiveChatUser: (user: User) => void;
+  setActiveChatUserById: (waId: string) => void;
 };
 
 export const useUserStore = create<UserStore>((set) => ({
@@ -24,5 +25,9 @@ export const useUserStore = create<UserStore>((set) => ({
   setActiveUser: (user) => set({ activeUser: user }),
   activeChatUser: null,
   setActiveChatUser: (user) => set({ activeChatUser: user }),
+  setActiveChatUserById: (waId) => {
+    const user = users.find((u) => u.waId === waId) || null;
+    set({ activeChatUser: user });
+  },
   users,
 }));

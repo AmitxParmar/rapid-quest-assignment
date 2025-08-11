@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "../ui/avatar";
 
 import { ChevronDown } from "lucide-react";
 import { Message } from "@/types";
+import { formatWaIdToPhone } from "@/utils";
 
 type MessageBubbleProps = {
   message: Message;
@@ -26,7 +27,7 @@ const MessageBubble = ({
     {isReceiver && (
       <div className="flex flex-col items-start mr-2">
         <Avatar className="size-8 mb-1">
-          <AvatarFallback>?</AvatarFallback>
+          <AvatarFallback>{message.contact.name[0]}</AvatarFallback>
         </Avatar>
       </div>
     )}
@@ -77,7 +78,7 @@ const MessageBubble = ({
         {/* Optional: show name for receiver */}
         {isReceiver && (
           <div className="capitalize text-wa-info text-[11px] mt-1">
-            {message.from}
+            {formatWaIdToPhone(message.from)}
           </div>
         )}
         <div className="flex gap-2 items-end ">

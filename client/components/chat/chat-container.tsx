@@ -26,12 +26,43 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
   }, [data?.messages, activeUser.waId]);
 
   return (
-    <div className="h-[80vh] w-full relative flex-grow overflow-y-auto overflow-x-hidden custom-scrollbar">
-      <div className="bg-[url(/chat-bg.png)] bg-fixed fixed h-full w-full opacity-5 !z-0"></div>
+    <div
+      className="
+        h-[80vh] w-full relative flex-grow
+        overflow-y-auto
+        overflow-x-hidden
+        custom-scrollbar
+      
+        bg-background
+      "
+      style={{
+        // Prevent horizontal scroll on all screens
+        overscrollBehaviorX: "none",
+        WebkitOverflowScrolling: "touch",
+      }}
+    >
+      <div className="bg-[url(/chat-bg.png)] bg-fixed fixed h-full w-full opacity-5 !z-0 pointer-events-none"></div>
       {!isLoading ? (
-        <div className="mx-10 my-6 relative bottom-0 z-40">
+        <div
+          className="
+            mx-2 my-2 sm:mx-10 sm:my-6
+            relative bottom-0 z-40
+          "
+        >
           <div className="flex w-full">
-            <div className="flex flex-col justify-end w-full gap-1 overflow-y-auto px-2 ">
+            <div
+              className="
+                flex flex-col justify-end w-full gap-1
+                overflow-y-auto
+                overflow-x-hidden
+                px-1 sm:px-2
+                max-w-full
+              "
+              style={{
+                // Prevent horizontal scroll on all screens
+                overscrollBehaviorX: "none",
+              }}
+            >
               {messageBubbles}
             </div>
           </div>

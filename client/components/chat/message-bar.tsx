@@ -40,6 +40,7 @@ function MessageBar({}) {
 
   /* handle submit message */
   const handleSubmit = () => {
+    console.log("handlemessage", activeChatUser?.waId);
     const toWaId = activeChatUser?.waId;
     if (!toWaId) return;
     const data = {
@@ -47,7 +48,11 @@ function MessageBar({}) {
       to: toWaId,
       text: message,
     };
-    sendMessage(data);
+    console.log("submitting data", data);
+    sendMessage(data, {
+      onSuccess: () => console.log("message sent successfully!"),
+      onError: (error) => console.log(error),
+    });
   };
 
   return (
