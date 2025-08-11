@@ -26,8 +26,15 @@ export interface IAddMessageResponse {
 }
 
 // Fetch messages by conversation ID
-export async function getMessages(conversationId: string) {
-  const res = await api.get(`/api/messages/${conversationId}`);
+
+export async function getMessages(
+  conversationId: string,
+  queries?: { page?: number; limit?: number }
+) {
+  const res = await api.get(`/api/messages/${conversationId}`, {
+    params: queries,
+  });
+  console.log("msgs", res.data);
   return res.data.data as IMessageResponse;
 }
 

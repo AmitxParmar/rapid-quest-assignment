@@ -1,14 +1,14 @@
 import React from "react";
-import ContactHeader from "./chat-list-header";
+import ContactHeader from "./conversation-list-header";
 import SearchBar from "./search-bar";
-import ChatList from "./chat-list";
+import ConversationList from "./conversation-list";
 
 const Conversations = () => {
   return (
     <div className="border-r overflow-auto flex flex-col md:max-h-screen z-20">
       <ContactHeader />
       <SearchBar />
-      <ChatList />
+      <ConversationList />
     </div>
   );
 };

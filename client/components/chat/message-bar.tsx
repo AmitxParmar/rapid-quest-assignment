@@ -50,7 +50,10 @@ function MessageBar({}) {
     };
     console.log("submitting data", data);
     sendMessage(data, {
-      onSuccess: () => console.log("message sent successfully!"),
+      onSuccess: () => {
+        setMessage("");
+        console.log("message sent successfully!");
+      },
       onError: (error) => console.log(error),
     });
   };

@@ -31,7 +31,7 @@ export const getMessages = async (req: Request, res: Response) => {
   try {
     const { conversationId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 50;
+    const limit = parseInt(req.query.limit as string) || 25;
     const skip = (page - 1) * limit;
 
     // Debug: log incoming params and query

@@ -3,10 +3,11 @@ import React, { useCallback, useMemo } from "react";
 import MessageStatus from "@/components/common/message-status";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { calculateTime } from "@/utils/calculateTime";
-import { useUserStore } from "./../../../store/useUserStore";
+import { useUserStore } from "../../../store/useUserStore";
 import { getOtherParticipant } from "@/utils";
 import { useRouter } from "next/navigation";
 import { Conversation } from "@/types";
+import { useMarkAsRead } from "@/hooks/useConversations";
 
 type ChatListItemProps = {
   data: Conversation;
@@ -14,10 +15,11 @@ type ChatListItemProps = {
   onClick?: (id: string) => void;
 };
 
-const ChatListItem: React.FC<ChatListItemProps> = React.memo(
+const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
   ({ data, isContactsPage = false, onClick }) => {
     const router = useRouter();
     const { activeUser, setActiveChatUser } = useUserStore((state) => state);
+    const { mutate: markAsRead } = useMarkAsRead(activeUser?.waId ?? "");
 
     // Memoize other participant for performance
     const otherParticipant = useMemo(
@@ -50,18 +52,31 @@ const ChatListItem: React.FC<ChatListItemProps> = React.memo(
     const handleConversation = useCallback(
       (e: React.MouseEvent) => {
         e.stopPropagation();
-        const other = getOtherParticipant(data?.participants, activeUser);
-        if (other) {
-          setActiveChatUser(other);
+
+        if (otherParticipant) {
+          setActiveChatUser(otherParticipant);
         }
-        router.push(`/conversation/${data.conversationId}/${other?.waId}`);
+
+        // Mark messages as read when user clicks on conversation
+        if (data.unreadCount > 0) {
+          markAsRead({
+            conversationId: data.conversationId,
+            waId: activeUser.waId,
+          });
+        }
+
+        router.push(
+          `/conversation/${data.conversationId}/${otherParticipant?.waId}`
+        );
       },
       [
         router,
         data.conversationId,
         data?.participants,
+        data.unreadCount,
         activeUser,
         setActiveChatUser,
+        markAsRead,
       ]
     );
 
@@ -155,6 +170,6 @@ const ChatListItem: React.FC<ChatListItemProps> = React.memo(
   }
 );
 
-ChatListItem.displayName = "ChatListItem";
+ConversationListItem.displayName = "ChatListItem";
 
-export default ChatListItem;
+export default ConversationListItem;

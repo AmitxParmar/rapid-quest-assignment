@@ -15,7 +15,9 @@ type MarkRead = {
 };
 
 // Mark all messages as read in a conversation
-export async function markMessagesAsRead(conversationId: string) {
-  const res = await api.put(`/api/conversations/${conversationId}/read`);
+export async function markMessagesAsRead(conversationId: string, waId: string) {
+  const res = await api.put(`/api/conversations/${conversationId}/read`, {
+    waId,
+  });
   return res.data as MarkRead;
 }

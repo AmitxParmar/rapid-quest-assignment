@@ -1,21 +1,21 @@
 "use client";
 import React from "react";
-import ChatListItem from "./chat-list-item";
+import ConversationListItem from "./conversation-list-item";
 import { useConversations } from "@/hooks/useConversations";
 
-const ChatList = () => {
+const ConversationList = () => {
   const { data: conversations, isLoading, error } = useConversations();
   console.log(error);
   return (
     <div className="flex-auto overflow-auto max-h-full custom-scrollbar">
       {isLoading ? (
-        <ChatListSkeleton />
+        <ConversationListSkeleton />
       ) : conversations && Array.isArray(conversations) ? (
         conversations?.length === 0 ? (
           <NoConversations />
         ) : (
           conversations?.map((contact) => (
-            <ChatListItem key={contact._id} data={contact} />
+            <ConversationListItem key={contact._id} data={contact} />
           ))
         )
       ) : (
@@ -25,10 +25,10 @@ const ChatList = () => {
   );
 };
 
-export default ChatList;
+export default ConversationList;
 
 // Simple skeleton loader for chat list items
-const ChatListSkeleton = () => {
+const ConversationListSkeleton = () => {
   // WhatsApp Web colors
   const bgPrimary = "bg-background"; // chat list background
   const bgSecondary = "bg-background"; // chat item background

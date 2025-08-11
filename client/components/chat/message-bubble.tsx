@@ -73,7 +73,7 @@ const MessageBubble = ({
           </svg>
         </span>
         <ChevronDown
-          className={` cursor-pointer absolute hidden group-hover:block top-0 right-0`}
+          className={` cursor-pointer absolute hidden group-hover:block top-0.5 right-2`}
         />
         {/* Optional: show name for receiver */}
         {isReceiver && (

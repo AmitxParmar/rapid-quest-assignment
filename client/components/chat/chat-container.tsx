@@ -7,23 +7,27 @@ import { memo, useMemo } from "react";
 function ChatContainer({ conversationId }: { conversationId: string }) {
   const { data, isLoading } = useMessages(conversationId);
   const { activeUser } = useUserStore((state) => state);
+  console.log("check msgs", data);
 
   // Memoize the rendered message bubbles for performance
   const messageBubbles = useMemo(() => {
-    if (!data?.messages) return null;
-    return data.messages.map((message) => {
-      const isSender = activeUser.waId === message.from;
-      const isReceiver = !isSender;
-      return (
-        <MessageBubble
-          key={message._id}
-          message={message}
-          isSender={isSender}
-          isReceiver={isReceiver}
-        />
-      );
-    });
-  }, [data?.messages, activeUser.waId]);
+    if (!data?.pages || data.pages.length === 0) return null;
+    // Each page is expected to be an IMessageResponse, which has a .messages array
+    return data.pages.flatMap((page) =>
+      page.messages.map((message) => {
+        const isSender = activeUser.waId === message.from;
+        const isReceiver = !isSender;
+        return (
+          <MessageBubble
+            key={message._id}
+            message={message}
+            isSender={isSender}
+            isReceiver={isReceiver}
+          />
+        );
+      })
+    );
+  }, [data?.pages, activeUser.waId]);
 
   return (
     <div
