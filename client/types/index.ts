@@ -8,7 +8,7 @@ export type LastMessage = {
   text: string;
   timestamp: number;
   from: string;
-  status: string;
+  status: "sent" | "delivered" | "read" | "failed";
 };
 
 export type Conversation = {

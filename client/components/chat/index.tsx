@@ -14,9 +14,7 @@ function Chat({
   conversationId: string;
   activeChatUserId: string;
 }) {
-  const { setActiveChatUserById, activeUser, activeChatUser } = useUserStore(
-    (state) => state
-  );
+  const { setActiveChatUserById } = useUserStore((state) => state);
   const isMobile = useIsMobile();
 
   useEffect(() => {

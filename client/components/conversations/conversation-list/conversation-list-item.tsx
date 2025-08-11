@@ -20,7 +20,6 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
     const router = useRouter();
     const { activeUser, setActiveChatUser } = useUserStore((state) => state);
     const { mutate: markAsRead } = useMarkAsRead(activeUser?.waId ?? "");
-
     // Memoize other participant for performance
     const otherParticipant = useMemo(
       () => getOtherParticipant(data.participants, activeUser),
@@ -35,6 +34,7 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
 
     // Memoize last message
     const lastMessage = useMemo(() => data.lastMessage, [data.lastMessage]);
+    console.log("status in conversation-lst", lastMessage);
 
     // Memoize time
     const createdAtTime = useMemo(
@@ -98,15 +98,7 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
             sm:max-w-[250px] md:max-w-[300px] lg:max-w-[200px] xl:max-w-[300px]
           "
         >
-          {isOwnMessage && (
-            <MessageStatus
-              messageStatus={
-                (["sent", "delivered", "read"].includes(lastMessage?.status)
-                  ? lastMessage?.status
-                  : "sent") as "sent" | "delivered" | "read"
-              }
-            />
-          )}
+          {isOwnMessage && <MessageStatus messageStatus={lastMessage.status} />}
           {lastMessage?.text && (
             <span className="truncate">{lastMessage.text}</span>
           )}
