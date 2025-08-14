@@ -27,7 +27,7 @@ export default function RootLayout({
   return (
     <html suppressHydrationWarning lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} zoom-in-100 antialiased max-h-screen h-screen`}
       >
         <QueryProvider>
           <ThemeProvider>{children}</ThemeProvider>

@@ -33,15 +33,15 @@ const ContactHeader = () => {
             <DropdownMenuContent>
               <DropdownMenuLabel>Settings</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Button
-                  title="change theme"
-                  variant={"ghost"}
-                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                >
-                  {theme === "light" ? <Moon /> : <Sun />} Switch Theme
-                </Button>
-              </DropdownMenuItem>
+
+              <Button
+                className="min-h-full"
+                title="change theme"
+                variant={"ghost"}
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              >
+                {theme === "light" ? <Moon /> : <Sun />} Switch Theme
+              </Button>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

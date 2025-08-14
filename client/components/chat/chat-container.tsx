@@ -23,12 +23,12 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
     // Flatten all messages, oldest first, newest last
     return data.pages
       .flatMap((page) => page.messages)
-      .map((message) => {
+      .map((message, index) => {
         const isSender = activeUser.waId === message.from;
         const isReceiver = !isSender;
         return (
           <MessageBubble
-            key={message._id}
+            key={message._id + index}
             message={message}
             isSender={isSender}
             isReceiver={isReceiver}

@@ -9,8 +9,8 @@ const ChatLayout = ({ children }: { children: React.ReactNode }) => {
     <div
       className={
         isMobile
-          ? "flex flex-col h-screen w-screen max-h-screen max-w-full overflow-hidden"
-          : "grid grid-cols-[1fr_2.4fr] h-screen w-screen max-h-screen max-w-full overflow-hidden"
+          ? "flex flex-col h-full w-screen max-h-screen max-w-full overflow-hidden"
+          : "grid grid-cols-[1fr_2.4fr] h-full w-screen max-w-full overflow-hidden"
       }
     >
       <Conversations />

@@ -7,7 +7,7 @@ const ConversationList = () => {
   const { data: conversations, isLoading, error } = useConversations();
   console.log(error);
   return (
-    <div className="flex-auto overflow-auto max-h-full custom-scrollbar">
+    <div className="flex-auto overflow-auto px-1.5 max-h-full custom-scrollbar">
       {isLoading ? (
         <ConversationListSkeleton />
       ) : conversations && Array.isArray(conversations) ? (
