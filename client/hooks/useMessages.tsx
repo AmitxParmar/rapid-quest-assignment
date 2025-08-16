@@ -7,6 +7,8 @@ import {
   sendMessage,
   getContacts,
 } from "@/services/message.service";
+import { useUserStore } from "@/store/useUserStore";
+import { Conversation } from "@/types";
 import {
   useInfiniteQuery,
   useMutation,
@@ -47,13 +49,15 @@ export function useMessages(conversationId: string) {
 // Send a new message and update the cache for the correct conversation
 
 export function useSendMessage() {
+  const { activeUser } = useUserStore((state) => state);
+
   const qc = useQueryClient();
   return useMutation<IAddMessageResponse, unknown, IAddMessageRequest>({
     mutationFn: (data) => sendMessage(data),
     onSuccess: (data, _) => {
       // For useInfiniteQuery, the cached data shape is { pages: [...], pageParams: [...] }
       qc.setQueryData(["messages", data.conversationId], (oldData: any) => {
-        // If no oldData, initialize as a single page
+        // If no oldData or no pages, initialize as a single page with the new message
         if (!oldData || !oldData.pages) {
           return {
             pages: [
@@ -71,17 +75,15 @@ export function useSendMessage() {
           };
         }
 
-        // Add the new message to the last page's messages array
+        // Add the new message to the beginning of the first page's messages array
         const newPages = oldData.pages.map((page: any, idx: number) => {
-          // Only add to the last page
-          if (idx === oldData.pages.length - 1) {
-            // Ensure page.messages is an array
+          if (idx === 0) {
             const oldMessages = Array.isArray(page.messages)
               ? page.messages
               : [];
             return {
               ...page,
-              messages: [...oldMessages, data.message],
+              messages: [data.message, ...oldMessages],
               pagination: {
                 ...page.pagination,
                 totalMessages: (page.pagination?.totalMessages || 0) + 1,
@@ -96,6 +98,31 @@ export function useSendMessage() {
           pages: newPages,
         };
       });
+
+      // Optionally update conversations cache here if needed
+      // Update the conversations cache to reflect the new last message and bump the conversation to the top
+      qc.setQueryData(
+        ["conversations", activeUser.waId],
+        (oldConvo: Conversation[] | undefined) => {
+          if (!oldConvo) return oldConvo;
+          // Find the conversation to update
+          const idx = oldConvo.findIndex(
+            (convo) => convo._id === data.conversationId
+          );
+          if (idx === -1) return oldConvo;
+
+          // Update the lastMessage and move the conversation to the top
+          const updatedConvo = {
+            ...oldConvo[idx],
+            lastMessage: data.message,
+          };
+          return [
+            updatedConvo,
+            ...oldConvo.slice(0, idx),
+            ...oldConvo.slice(idx + 1),
+          ];
+        }
+      );
     },
   });
 }

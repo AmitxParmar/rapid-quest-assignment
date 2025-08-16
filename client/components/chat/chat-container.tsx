@@ -53,12 +53,14 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
     <div
       ref={scrollRef}
       className="
+      transition-all
+      
         h-[80vh] w-full relative flex-grow
         overflow-y-auto
         overflow-x-hidden
         custom-scrollbar
         bg-background
-        flex flex-col-reverse
+        flex flex-col
       "
       style={{
         overscrollBehaviorX: "none",
@@ -67,9 +69,6 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
     >
       <div className="bg-[url(/chat-bg.png)] bg-fixed fixed h-full w-full opacity-5 !z-0 pointer-events-none"></div>
       {/* Message bubbles */}
-      <div className="flex-1 flex flex-col-reverse justify-start w-full gap-1 px-1 sm:px-8 max-w-full relative z-20">
-        {messageBubbles}
-      </div>
       {/* Load More Button at the bottom (visually top) */}
       <div className="flex items-center justify-center py-2 z-10">
         <Button
@@ -97,6 +96,9 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
             </>
           )}
         </Button>
+      </div>
+      <div className="flex-1 flex flex-col-reverse justify-start w-full gap-1 px-1 sm:px-8 max-w-full relative z-20">
+        {messageBubbles}
       </div>
       {/* Loader for isFetching */}
       {isFetching && <MessageLoader />}

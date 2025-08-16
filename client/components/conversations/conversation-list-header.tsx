@@ -33,7 +33,6 @@ const ContactHeader = () => {
             <DropdownMenuContent>
               <DropdownMenuLabel>Settings</DropdownMenuLabel>
               <DropdownMenuSeparator />
-
               <Button
                 className="min-h-full"
                 title="change theme"

@@ -13,6 +13,7 @@ function MessageBar({}) {
   const [message, setMessage] = useState("");
   const [showEmojiPicker, setEmojiPicker] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -32,14 +33,27 @@ function MessageBar({}) {
     };
   }, [showEmojiPicker]);
 
+  // Focus input when emoji picker closes or after sending a message
+  useEffect(() => {
+    if (!showEmojiPicker && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [showEmojiPicker]);
+
   // Handle Emoji Modal
   const handleEmojiModal = (): void => setEmojiPicker(!showEmojiPicker);
+
   const handleEmojiClick = (emoji: EmojiClickData) => {
     setMessage((prevMsg) => (prevMsg += emoji.emoji));
+    // Focus input after emoji is picked
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
   };
 
   /* handle submit message */
   const handleSubmit = () => {
+    if (!message.trim()) return;
     console.log("handlemessage", activeChatUser?.waId);
     const toWaId = activeChatUser?.waId;
     if (!toWaId) return;
@@ -52,10 +66,20 @@ function MessageBar({}) {
     sendMessage(data, {
       onSuccess: () => {
         setMessage("");
+        // Focus input after sending
+        inputRef.current?.focus();
         console.log("message sent successfully!");
       },
       onError: (error) => console.log(error),
     });
+  };
+
+  // Add onKeyDown handler for Enter key
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
   };
 
   return (
@@ -85,20 +109,23 @@ function MessageBar({}) {
       </div>
       <div className="w-full rounded-lg h-10 flex items-center">
         <Input
+          ref={inputRef}
           type="text"
           placeholder="Type a message"
           className="border-none ring-0 placeholder:font-semibold placeholder:-tracking-normal px-1.5 placeholder:text-[15px] leading-1 focus:ring-0 focus-visible:ring-0 bg-transparent dark:bg-transparent focus:outline-none text-primary h-full rounded-lg w-full"
           onChange={(e) => setMessage(e.target.value)}
           value={message}
+          onKeyDown={handleInputKeyDown}
         />
       </div>
       <div className="flex w-10 items-center justify-center">
-        <button className={`${message === "" ? "opacity-20" : null}`}>
+        <button
+          className={`${message === "" ? "opacity-20" : null}`}
+          type="button"
+          onClick={message.length ? handleSubmit : undefined}
+        >
           {message.length ? (
-            <SendHorizontal
-              onClick={handleSubmit}
-              className="text-panel-header-icon cursor-pointer text-xl"
-            />
+            <SendHorizontal className="text-panel-header-icon cursor-pointer text-xl" />
           ) : (
             <Mic className="text-panel-header-icon cursor-pointer text-xl" />
           )}

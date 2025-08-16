@@ -11,10 +11,12 @@ import { Button } from "../ui/button";
 import { useUserStore } from "@/store/useUserStore";
 import { ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 const AccountSwitcher = () => {
   const { activeUser, setActiveUser, users } = useUserStore();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   return (
     <DropdownMenu>
@@ -36,6 +38,8 @@ const AccountSwitcher = () => {
             const user = users.find((u) => u.waId === waId);
             if (user) {
               setActiveUser(user);
+              // Reset all TanStack Query cache on account switch
+              queryClient.clear();
               // Clear the URL (remove query and path, go to root)
               router.push("/", undefined);
             }

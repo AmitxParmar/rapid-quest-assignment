@@ -35,7 +35,10 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
     // Memoize last message
     const lastMessage = useMemo(() => data.lastMessage, [data.lastMessage]);
     console.log("status in conversation-lst", lastMessage);
-
+    // is own message
+    const isOwnMessage =
+      lastMessage?.from === activeUser?.waId &&
+      ["sent", "delivered", "read"].includes(lastMessage?.status);
     // Memoize time
     const createdAtTime = useMemo(
       () => calculateTime(data?.createdAt ?? ""),
@@ -58,7 +61,7 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
         }
 
         // Mark messages as read when user clicks on conversation
-        if (data.unreadCount > 0) {
+        if (data.unreadCount > 0 && !isOwnMessage) {
           markAsRead({
             conversationId: data.conversationId,
             waId: activeUser.waId,
@@ -87,10 +90,6 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
         return "\u00A0";
       }
 
-      const isOwnMessage =
-        lastMessage?.from === activeUser?.waId &&
-        ["sent", "delivered", "read"].includes(lastMessage?.status);
-
       return (
         <div
           className="
@@ -108,7 +107,7 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
 
     // Render unread badge
     const renderUnreadBadge = useMemo(() => {
-      if (unreadCount > 0) {
+      if (unreadCount > 0 && !isOwnMessage) {
         return (
           <span className="bg-label px-[5px] rounded-full text-background font-semibold text-sm">
             {unreadCount}
@@ -140,7 +139,9 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
               {!isContactsPage && (
                 <span
                   className={`${
-                    unreadCount > 0 ? "text-label" : "text-muted-foreground"
+                    unreadCount > 0 && !isOwnMessage
+                      ? "text-label"
+                      : "text-muted-foreground"
                   } text-sm`}
                 >
                   {createdAtTime}
