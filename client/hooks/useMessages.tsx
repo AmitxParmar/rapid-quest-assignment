@@ -15,9 +15,123 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { io, type Socket } from "socket.io-client";
+import { api } from "@/lib/api";
+
+// Global socket singleton to prevent multiple connections
+let globalSocket: Socket | null = null;
+
+function getSocket() {
+  if (!globalSocket) {
+    const baseURL = api.defaults.baseURL || "http://localhost:5000";
+    globalSocket = io(baseURL, {
+      transports: ["websocket"],
+      autoConnect: true,
+      withCredentials: true,
+    });
+  }
+  return globalSocket;
+}
 
 // Fetch messages for a specific conversation using the correct route
 export function useMessages(conversationId: string) {
+  const qc = useQueryClient();
+  const listenerRef = useRef<
+    ((payload: { message: any; conversationId: string }) => void) | null
+  >(null);
+
+  useEffect(() => {
+    // Only run in browser and when a conversationId is available
+    if (!conversationId) return;
+
+    const socket = getSocket();
+
+    // Join the conversation room on the server
+    socket.emit("conversation:join", conversationId);
+
+    // Create a unique listener for this conversation
+    const onMessageCreated = (payload: {
+      message: any;
+      conversationId: string;
+    }) => {
+      if (!payload || payload.conversationId !== conversationId) return;
+
+      console.log(
+        "Socket: message:created received for conversation:",
+        conversationId
+      );
+
+      // Update the infinite query cache for this conversation
+      qc.setQueryData(["messages", conversationId], (oldData: any) => {
+        if (!oldData || !oldData.pages) {
+          return {
+            pages: [
+              {
+                messages: [payload.message],
+                pagination: {
+                  currentPage: 1,
+                  totalPages: 1,
+                  totalMessages: 1,
+                  hasMore: false,
+                },
+              },
+            ],
+            pageParams: [1],
+          };
+        }
+
+        // Check if message already exists to prevent duplicates
+        const firstPage = oldData.pages[0];
+        if (firstPage && Array.isArray(firstPage.messages)) {
+          const messageExists = firstPage.messages.some(
+            (msg: any) => msg._id === payload.message._id
+          );
+          if (messageExists) {
+            console.log("Socket: Message already exists in cache, skipping");
+            return oldData;
+          }
+        }
+
+        const newPages = oldData.pages.map((page: any, idx: number) => {
+          if (idx === 0) {
+            const oldMessages = Array.isArray(page.messages)
+              ? page.messages
+              : [];
+            return {
+              ...page,
+              messages: [payload.message, ...oldMessages],
+              pagination: {
+                ...page.pagination,
+                totalMessages: (page.pagination?.totalMessages || 0) + 1,
+              },
+            };
+          }
+          return page;
+        });
+
+        return {
+          ...oldData,
+          pages: newPages,
+        };
+      });
+    };
+
+    // Store the listener reference for cleanup
+    listenerRef.current = onMessageCreated;
+
+    // Add listener to socket
+    socket.on("message:created", onMessageCreated);
+
+    // Cleanup function
+    return () => {
+      if (listenerRef.current) {
+        socket.off("message:created", listenerRef.current);
+        listenerRef.current = null;
+      }
+    };
+  }, [conversationId, qc]);
+
   return useInfiniteQuery({
     queryKey: ["messages", conversationId],
     queryFn: async ({ pageParam = 1 }) => {
@@ -55,52 +169,7 @@ export function useSendMessage() {
   return useMutation<IAddMessageResponse, unknown, IAddMessageRequest>({
     mutationFn: (data) => sendMessage(data),
     onSuccess: (data, _) => {
-      // For useInfiniteQuery, the cached data shape is { pages: [...], pageParams: [...] }
-      qc.setQueryData(["messages", data.conversationId], (oldData: any) => {
-        // If no oldData or no pages, initialize as a single page with the new message
-        if (!oldData || !oldData.pages) {
-          return {
-            pages: [
-              {
-                messages: [data.message],
-                pagination: {
-                  currentPage: 1,
-                  totalPages: 1,
-                  totalMessages: 1,
-                  hasMore: false,
-                },
-              },
-            ],
-            pageParams: [1],
-          };
-        }
-
-        // Add the new message to the beginning of the first page's messages array
-        const newPages = oldData.pages.map((page: any, idx: number) => {
-          if (idx === 0) {
-            const oldMessages = Array.isArray(page.messages)
-              ? page.messages
-              : [];
-            return {
-              ...page,
-              messages: [data.message, ...oldMessages],
-              pagination: {
-                ...page.pagination,
-                totalMessages: (page.pagination?.totalMessages || 0) + 1,
-              },
-            };
-          }
-          return page;
-        });
-
-        return {
-          ...oldData,
-          pages: newPages,
-        };
-      });
-
-      // Optionally update conversations cache here if needed
-      // Update the conversations cache to reflect the new last message and bump the conversation to the top
+      // Only update conversations cache - messages cache will be updated by socket
       qc.setQueryData(
         ["conversations", activeUser.waId],
         (oldConvo: Conversation[] | undefined) => {

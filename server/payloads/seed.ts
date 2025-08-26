@@ -1,4 +1,3 @@
-// scripts/directSeed.ts
 import mongoose from "mongoose";
 import { Message } from "../models/Message";
 import { Conversation } from "../models/Conversation";
@@ -13,6 +12,9 @@ const BUSINESS_PHONE = "918329446654";
 async function createDirectData() {
   try {
     console.log("Connecting to MongoDB...");
+    if (!MONGO_URI) {
+      throw new Error("MONGO_URI is not defined in environment variables.");
+    }
     await mongoose.connect(MONGO_URI);
     console.log("✓ Connected");
 

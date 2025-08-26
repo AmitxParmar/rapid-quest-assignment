@@ -9,6 +9,7 @@ import messageRoutes from "./routes/message.route";
 const logger = pino();
 const app = express();
 const allowedClientUrls = [env.clientUrl, "http://localhost:3000"];
+export type AppWithIO = typeof app & { io?: import("socket.io").Server };
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

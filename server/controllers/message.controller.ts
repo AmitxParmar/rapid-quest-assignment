@@ -1,12 +1,26 @@
 // controllers/messageController.ts
 import { Request, Response } from "express";
+import app from "../app";
 import { Message } from "../models/Message";
 import { Conversation } from "../models/Conversation";
 import { Contact } from "../models/Contact";
 import mongoose from "mongoose";
 
-// Get all conversations for WhatsApp-like list
-export const getConversations = async (req: Request, res: Response) => {
+/**
+ * Get all conversations for WhatsApp-like list.
+ *
+ * @route GET /api/conversations
+ * @param {Request} req - Express request object
+ * @param {Response} res - Express response object
+ * @returns {Promise<void>}
+ * @description
+ *   Fetches all non-archived conversations, sorted by the latest message timestamp.
+ *   Responds with an array of conversation objects.
+ */
+export const getConversations = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const conversations = await Conversation.find({ isArchived: false })
       .sort({ "lastMessage.timestamp": -1 })
@@ -26,7 +40,17 @@ export const getConversations = async (req: Request, res: Response) => {
   }
 };
 
-// Get all messages for a specific conversation
+/**
+ * Get all messages for a specific conversation.
+ *
+ * @route GET /api/messages/:conversationId
+ * @param {Request} req - Express request object (expects conversationId in params, page/limit in query)
+ * @param {Response} res - Express response object
+ * @returns {Promise<void>}
+ * @description
+ *   Fetches paginated messages for a given conversation.
+ *   Returns messages and pagination info.
+ */
 export const getMessages = async (req: Request, res: Response) => {
   try {
     const { conversationId } = req.params;
@@ -91,7 +115,17 @@ export const getMessages = async (req: Request, res: Response) => {
   }
 };
 
-// Send a new message
+/**
+ * Send a new message.
+ *
+ * @route POST /api/messages
+ * @param {Request} req - Express request object (expects from, to, text, type, direction in body)
+ * @param {Response} res - Express response object
+ * @returns {Promise<void>}
+ * @description
+ *   Validates input, finds or creates a conversation, creates a new message,
+ *   updates the conversation's last message, emits a socket event, and responds with the new message.
+ */
 export const sendMessage = async (req: Request, res: Response) => {
   try {
     const { from, to, text, type = "text", direction = "outgoing" } = req.body;
@@ -182,6 +216,29 @@ export const sendMessage = async (req: Request, res: Response) => {
     conversation.unreadCount += 1;
     await conversation.save();
 
+    // Emit socket event to notify clients that a message was created and saved
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const io = (app as any).io as import("socket.io").Server | undefined;
+    if (io) {
+      const conversationId =
+        typeof conversation._id === "string"
+          ? conversation._id
+          : conversation._id && typeof conversation._id.toString === "function"
+          ? conversation._id.toString()
+          : "";
+
+      const payload = {
+        message: newMessage,
+        conversationId,
+      };
+
+      // Emit to room for this conversation and as a global fallback
+      if (conversationId) {
+        io.to(conversationId).emit("message:created", payload);
+      }
+      io.emit("message:created", payload);
+    }
+
     res.status(201).json({
       success: true,
       data: {
@@ -199,7 +256,16 @@ export const sendMessage = async (req: Request, res: Response) => {
   }
 };
 
-// Get contact details
+/**
+ * Get contact details.
+ *
+ * @route GET /api/contacts
+ * @param {Request} req - Express request object
+ * @param {Response} res - Express response object
+ * @returns {Promise<void>}
+ * @description
+ *   Fetches all contacts, selecting only relevant fields, and returns them sorted by name.
+ */
 export const getContacts = async (req: Request, res: Response) => {
   try {
     const contacts = await Contact.find({})
