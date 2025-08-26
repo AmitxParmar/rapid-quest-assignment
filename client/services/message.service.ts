@@ -43,9 +43,3 @@ export async function sendMessage(data: IAddMessageRequest) {
   const res = await api.post("/api/messages", data);
   return res.data.data as IAddMessageResponse;
 }
-
-// Fetch all contacts
-export async function getContacts() {
-  const res = await api.get("/api/contacts");
-  return res.data.data;
-}

@@ -2,10 +2,18 @@
 import React from "react";
 import ConversationListItem from "./conversation-list-item";
 import { useConversations } from "@/hooks/useConversations";
+import { useUserStore } from "@/store/useUserStore";
+import ContactList from "@/components/contacts-list";
 
 const ConversationList = () => {
   const { data: conversations, isLoading, error } = useConversations();
-  console.log(error);
+  const isContactListOpen = useUserStore((state) => state.isContactListOpen);
+
+  // If contact list is open, render it instead of conversations
+  if (isContactListOpen) {
+    return <ContactList />;
+  }
+
   return (
     <div className="flex-auto overflow-auto px-1.5 max-h-full custom-scrollbar">
       {isLoading ? (

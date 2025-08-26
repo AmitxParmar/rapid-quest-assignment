@@ -19,7 +19,7 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
   ({ data, isContactsPage = false, onClick }) => {
     const router = useRouter();
     const { activeUser, setActiveChatUser } = useUserStore((state) => state);
-    const { mutate: markAsRead } = useMarkAsRead(activeUser?.waId ?? "");
+
     // Memoize other participant for performance
     const otherParticipant = useMemo(
       () => getOtherParticipant(data.participants, activeUser),
@@ -35,10 +35,12 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
     // Memoize last message
     const lastMessage = useMemo(() => data.lastMessage, [data.lastMessage]);
     console.log("status in conversation-lst", lastMessage);
+
     // is own message
     const isOwnMessage =
       lastMessage?.from === activeUser?.waId &&
       ["sent", "delivered", "read"].includes(lastMessage?.status);
+
     // Memoize time
     const createdAtTime = useMemo(
       () => calculateTime(data?.createdAt ?? ""),
@@ -60,14 +62,6 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
           setActiveChatUser(otherParticipant);
         }
 
-        // Mark messages as read when user clicks on conversation
-        if (data.unreadCount > 0 && !isOwnMessage) {
-          markAsRead({
-            conversationId: data.conversationId,
-            waId: activeUser.waId,
-          });
-        }
-
         router.push(
           `/conversation/${data.conversationId}/${otherParticipant?.waId}`
         );
@@ -79,7 +73,6 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
         data.unreadCount,
         activeUser,
         setActiveChatUser,
-        markAsRead,
       ]
     );
 

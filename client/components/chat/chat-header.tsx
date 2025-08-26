@@ -18,7 +18,7 @@ function ChatHeader() {
         <div className="flex items-center gap-2">
           <ArrowLeft
             onClick={handleBack}
-            className="cursor-pointer md:hidden"
+            className="cursor-pointer lg:hidden"
           />
           <div className="flex items-center min-w-0">
             <Avatar className="h-10 w-10 mr-3 flex-shrink-0">

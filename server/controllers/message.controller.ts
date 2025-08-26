@@ -1,4 +1,3 @@
-// controllers/messageController.ts
 import { Request, Response } from "express";
 import app from "../app";
 import { Message } from "../models/Message";
@@ -235,8 +234,10 @@ export const sendMessage = async (req: Request, res: Response) => {
       // Emit to room for this conversation and as a global fallback
       if (conversationId) {
         io.to(conversationId).emit("message:created", payload);
+        io.to(conversationId).emit("conversation:updated", conversation);
       }
       io.emit("message:created", payload);
+      io.emit("conversation:updated", conversation);
     }
 
     res.status(201).json({
@@ -257,31 +258,100 @@ export const sendMessage = async (req: Request, res: Response) => {
 };
 
 /**
- * Get contact details.
+ * Update message delivery status.
  *
- * @route GET /api/contacts
- * @param {Request} req - Express request object
+ * @route PUT /api/messages/:messageId/status
+ * @param {Request} req - Express request object (expects messageId in params, status in body)
  * @param {Response} res - Express response object
  * @returns {Promise<void>}
  * @description
- *   Fetches all contacts, selecting only relevant fields, and returns them sorted by name.
+ *   Updates the status of a specific message (sent -> delivered -> read).
+ *   Emits socket events to notify clients about the status change.
  */
-export const getContacts = async (req: Request, res: Response) => {
+export const updateMessageStatus = async (req: Request, res: Response) => {
   try {
-    const contacts = await Contact.find({})
-      .select("waId name profilePicture isOnline lastSeen")
-      .sort({ name: 1 })
-      .lean();
+    const { messageId } = req.params;
+    const { status } = req.body;
+
+    // Validate required fields
+    if (!messageId || !status) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: messageId, status",
+      });
+    }
+
+    // Validate status values
+    const validStatuses = ["sent", "delivered", "read"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status. Must be one of: sent, delivered, read",
+      });
+    }
+
+    // Validate messageId
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid message ID",
+      });
+    }
+
+    // Update the message status
+    const updatedMessage = await Message.findByIdAndUpdate(
+      messageId,
+      { status },
+      { new: true }
+    ).populate("conversationId");
+
+    if (!updatedMessage) {
+      return res.status(404).json({
+        success: false,
+        message: "Message not found",
+      });
+    }
+
+    // Emit socket event to notify clients about the status update
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const io = (app as any).io as import("socket.io").Server | undefined;
+    if (io) {
+      const conversationId = updatedMessage.conversationId?.toString() || "";
+
+      if (conversationId) {
+        io.to(conversationId).emit("message:status-updated", {
+          messageId: updatedMessage._id,
+          conversationId,
+          status: updatedMessage.status,
+          message: updatedMessage,
+        });
+      }
+
+      // Also emit globally for cross-device sync
+      io.emit("message:status-updated", {
+        messageId: updatedMessage._id,
+        conversationId,
+        status: updatedMessage.status,
+        message: updatedMessage,
+      });
+
+      console.log(
+        `[updateMessageStatus] Emitted status update: ${messageId} -> ${status}`
+      );
+    }
 
     res.status(200).json({
       success: true,
-      data: contacts,
+      data: {
+        message: updatedMessage,
+        status: updatedMessage.status,
+      },
     });
   } catch (error) {
-    console.error("Error fetching contacts:", error);
+    console.error("Error updating message status:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch contacts",
+      message: "Failed to update message status",
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }

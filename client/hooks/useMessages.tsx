@@ -2,11 +2,7 @@ import type {
   IAddMessageRequest,
   IAddMessageResponse,
 } from "@/services/message.service";
-import {
-  getMessages,
-  sendMessage,
-  getContacts,
-} from "@/services/message.service";
+import { getMessages, sendMessage } from "@/services/message.service";
 import { useUserStore } from "@/store/useUserStore";
 import { Conversation } from "@/types";
 import {
@@ -39,6 +35,15 @@ export function useMessages(conversationId: string) {
   const qc = useQueryClient();
   const listenerRef = useRef<
     ((payload: { message: any; conversationId: string }) => void) | null
+  >(null);
+  const statusUpdateListenerRef = useRef<
+    | ((payload: {
+        messageId: string;
+        conversationId: string;
+        status: string;
+        message: any;
+      }) => void)
+    | null
   >(null);
 
   useEffect(() => {
@@ -117,17 +122,60 @@ export function useMessages(conversationId: string) {
       });
     };
 
-    // Store the listener reference for cleanup
-    listenerRef.current = onMessageCreated;
+    // Create a listener for message status updates
+    const onMessageStatusUpdated = (payload: {
+      messageId: string;
+      conversationId: string;
+      status: string;
+      message: any;
+    }) => {
+      if (!payload || payload.conversationId !== conversationId) return;
 
-    // Add listener to socket
+      console.log(
+        "Socket: message:status-updated received for message:",
+        payload.messageId,
+        "status:",
+        payload.status
+      );
+
+      // Update the message status in the cache
+      qc.setQueryData(["messages", conversationId], (oldData: any) => {
+        if (!oldData || !oldData.pages) return oldData;
+
+        const newPages = oldData.pages.map((page: any) => ({
+          ...page,
+          messages: page.messages.map((msg: any) => {
+            if (msg._id === payload.messageId) {
+              return { ...msg, status: payload.status };
+            }
+            return msg;
+          }),
+        }));
+
+        return {
+          ...oldData,
+          pages: newPages,
+        };
+      });
+    };
+
+    // Store the listener references for cleanup
+    listenerRef.current = onMessageCreated;
+    statusUpdateListenerRef.current = onMessageStatusUpdated;
+
+    // Add listeners to socket
     socket.on("message:created", onMessageCreated);
+    socket.on("message:status-updated", onMessageStatusUpdated);
 
     // Cleanup function
     return () => {
       if (listenerRef.current) {
         socket.off("message:created", listenerRef.current);
         listenerRef.current = null;
+      }
+      if (statusUpdateListenerRef.current) {
+        socket.off("message:status-updated", statusUpdateListenerRef.current);
+        statusUpdateListenerRef.current = null;
       }
     };
   }, [conversationId, qc]);
@@ -193,14 +241,5 @@ export function useSendMessage() {
         }
       );
     },
-  });
-}
-
-// Fetch all contacts
-export function useContacts() {
-  return useQuery({
-    queryKey: ["contacts"],
-    queryFn: getContacts,
-    retry: 2,
   });
 }

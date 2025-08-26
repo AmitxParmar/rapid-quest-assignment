@@ -1,6 +1,7 @@
 import MessageLoader from "../common/message-loader";
 import MessageBubble from "./message-bubble";
 import { useMessages } from "@/hooks/useMessages";
+import { useAutoMarkAsRead } from "@/hooks/useConversations";
 import { useUserStore } from "@/store/useUserStore";
 import { memo, useMemo, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
   const { data, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useMessages(conversationId);
   const { activeUser } = useUserStore((state) => state);
+  const { markConversationAsRead } = useAutoMarkAsRead();
 
   // Memoize the rendered message bubbles for performance
   const messageBubbles = useMemo(() => {
@@ -49,12 +51,38 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
     }
   }, [conversationId, data?.pages?.length, data?.pages?.[0]?.messages?.length]);
 
+  // Auto mark messages as read when conversation is opened and messages are loaded
+  useEffect(() => {
+    if (conversationId && data?.pages && data.pages.length > 0 && !isFetching) {
+      // Check if there are any unread messages for the current user
+      const hasUnreadMessages = data.pages.some((page) =>
+        page.messages.some(
+          (message) =>
+            message.to === activeUser.waId && message.status !== "read"
+        )
+      );
+
+      if (hasUnreadMessages) {
+        console.log(
+          "Auto marking messages as read for conversation:",
+          conversationId
+        );
+        markConversationAsRead(conversationId);
+      }
+    }
+  }, [
+    conversationId,
+    data?.pages,
+    isFetching,
+    activeUser.waId,
+    markConversationAsRead,
+  ]);
+
   return (
     <div
       ref={scrollRef}
       className="
       transition-all
-      
         h-[80vh] w-full relative flex-grow
         overflow-y-auto
         overflow-x-hidden

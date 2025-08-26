@@ -2,7 +2,7 @@ import express from "express";
 import {
   getMessages,
   sendMessage,
-  getContacts,
+  updateMessageStatus,
 } from "../controllers/message.controller";
 
 const router = express.Router();
@@ -13,7 +13,7 @@ router.get("/:conversationId", getMessages);
 // POST /api/messages - Send a new message
 router.post("/", sendMessage);
 
-// GET /api/contacts - Get all contacts
-router.get("/contacts", getContacts);
+// PUT /api/messages/:messageId/status - Update message delivery status
+router.put("/:messageId/status", updateMessageStatus);
 
 export default router;

@@ -10,9 +10,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "../ui/button";
 import { useTheme } from "next-themes";
+import { useUserStore } from "@/store/useUserStore";
 
 const ContactHeader = () => {
   const { theme, setTheme } = useTheme();
+  const { toggleContactList } = useUserStore((state) => state);
 
   return (
     <header className="h-16 sticky px-4 py-3 md:grid md:grid-cols-2 items-center">
@@ -22,7 +24,13 @@ const ContactHeader = () => {
       <div className="flex md:gap-6 justify-between items-center">
         <AccountSwitcher />
         <div className="flex flex-row items-center gap-2">
-          <MessageSquarePlus className="text-panel-header-icon cursor-pointer text-xl -scale-x-100" />
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => toggleContactList()}
+          >
+            <MessageSquarePlus className="cursor-pointer size-6 -scale-x-100" />
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger>
               <MoreVertical
@@ -33,14 +41,13 @@ const ContactHeader = () => {
             <DropdownMenuContent>
               <DropdownMenuLabel>Settings</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <Button
+              <DropdownMenuItem
                 className="min-h-full"
                 title="change theme"
-                variant={"ghost"}
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               >
                 {theme === "light" ? <Moon /> : <Sun />} Switch Theme
-              </Button>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

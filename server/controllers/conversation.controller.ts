@@ -2,12 +2,26 @@ import { Request, Response } from "express";
 import { Conversation } from "../models/Conversation";
 import mongoose from "mongoose";
 import { Message } from "../models/Message";
+import app from "../app";
+import { Contact } from "../models/Contact";
 
-// Get all conversations for WhatsApp-like list
-export const getConversations = async (req: Request, res: Response) => {
+/**
+ * Get all conversations for WhatsApp-like list for a specific user.
+ *
+ * @route GET /api/conversations/:userId
+ * @param {Request} req - Express request object (expects userId in params)
+ * @param {Response} res - Express response object
+ * @returns {Promise<Response>}  // <-- Fixed return type
+ * @description
+ *   Fetches all non-archived conversations for the given user, sorted by the latest message timestamp.
+ *   Responds with an array of conversation objects.
+ */
+export const getConversations = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
   try {
     const { userId } = req.params; // Get userId from URL params
-    // Alternative: const { userId } = req.query; // Get userId from query params
 
     if (!userId) {
       return res.status(400).json({
@@ -23,13 +37,13 @@ export const getConversations = async (req: Request, res: Response) => {
       .sort({ "lastMessage.timestamp": -1 })
       .lean();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: conversations,
     });
   } catch (error) {
     console.error("Error fetching conversations:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to fetch conversations",
       error: error instanceof Error ? error.message : "Unknown error",
@@ -37,8 +51,22 @@ export const getConversations = async (req: Request, res: Response) => {
   }
 };
 
-// Mark messages as read
-export const markAsRead = async (req: Request, res: Response) => {
+/**
+ * Mark all messages in a conversation as read for a specific user.
+ *
+ * @route POST /api/conversations/:conversationId/read
+ * @param {Request} req - Express request object (expects conversationId in params, waId in body)
+ * @param {Response} res - Express response object
+ * @returns {Promise<Response>}
+ * @description
+ *   Updates all unread messages in the conversation (where to=waId and status is "sent" or "delivered") to "read".
+ *   Also updates the conversation's lastMessage.status to "read" and resets unreadCount to 0.
+ *   Responds with the status of the update and the lastMessage before and after the update.
+ */
+export const markAsRead = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
   try {
     const { conversationId } = req.params;
     const { waId } = req.body; // The user marking messages as read
@@ -167,7 +195,30 @@ export const markAsRead = async (req: Request, res: Response) => {
       updatedConversation?.lastMessage
     );
 
-    res.status(200).json({
+    // Emit socket events to notify clients about the status update
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const io = (app as any).io as import("socket.io").Server | undefined;
+    if (io && updatedConversation) {
+      const convId = updatedConversation._id?.toString() || "";
+
+      // Emit conversation update to all clients
+      io.emit("conversation:updated", updatedConversation);
+
+      // Emit specific message status update event
+      io.emit("messages:marked-as-read", {
+        conversationId: convId,
+        waId,
+        updatedMessages: updateResult.modifiedCount,
+        conversation: updatedConversation,
+      });
+
+      console.log(
+        "[markAsRead] Emitted socket events for conversation:",
+        convId
+      );
+    }
+
+    return res.status(200).json({
       success: true,
       message: "Messages marked as read",
       lastMessageStatusUpdated: lastMessageUpdated,
@@ -176,9 +227,43 @@ export const markAsRead = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Error marking messages as read:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to mark messages as read",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+/**
+ * Get contact details.
+ *
+ * @route GET /api/contacts
+ * @param {Request} req - Express request object
+ * @param {Response} res - Express response object
+ * @returns {Promise<void>}
+ * @description
+ *   Fetches all contacts, selecting only relevant fields, and returns them sorted by name.
+ */
+export const getContacts = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  try {
+    const contacts = await Contact.find({})
+      .select("waId name profilePicture isOnline lastSeen")
+      .sort({ name: 1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      data: contacts,
+    });
+  } catch (error) {
+    console.error("Error fetching contacts:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch contacts",
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }

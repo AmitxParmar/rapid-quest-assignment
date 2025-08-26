@@ -21,3 +21,9 @@ export async function markMessagesAsRead(conversationId: string, waId: string) {
   });
   return res.data as MarkRead;
 }
+
+// Fetch all contacts
+export async function getContacts() {
+  const res = await api.get("/api/conversations/contacts");
+  return res.data.data;
+}
