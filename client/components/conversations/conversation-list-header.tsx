@@ -18,10 +18,10 @@ const ContactHeader = () => {
 
   return (
     <header className="h-16 sticky px-4 py-3 md:grid md:grid-cols-2 items-center">
-      <div className="cursor-pointer hidden md:block text-2xl font-semibold">
+      <div className="cursor-pointer pl-2.5 hidden md:block text-2xl font-semibold">
         WhatsApp
       </div>
-      <div className="flex md:gap-6 justify-between items-center">
+      <div className="flex md:gap-1 justify-between items-center">
         <AccountSwitcher />
         <div className="flex flex-row items-center gap-2">
           <Button
