@@ -1,28 +1,35 @@
 import mongoose, { Document, Schema } from "mongoose";
 
 export interface IContact extends Document {
-  waId: string;
-  name: string;
-  profilePicture?: string;
-  lastSeen?: Date;
-  isOnline: boolean;
+  userId: mongoose.Types.ObjectId; // Reference to User model
+  contactUserId: mongoose.Types.ObjectId; // Reference to the contact's User record
+  nickname?: string; // Optional custom name for this contact
+  isBlocked: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
 const ContactSchema = new Schema<IContact>(
   {
-    waId: { type: String, required: true, unique: true },
-    name: { type: String, required: true },
-    profilePicture: { type: String },
-    lastSeen: { type: Date },
-    isOnline: { type: Boolean, default: false },
+    userId: { 
+      type: Schema.Types.ObjectId, 
+      ref: "User", 
+      required: true 
+    },
+    contactUserId: { 
+      type: Schema.Types.ObjectId, 
+      ref: "User", 
+      required: true 
+    },
+    nickname: { type: String },
+    isBlocked: { type: Boolean, default: false },
   },
   {
     timestamps: true,
   }
 );
 
-ContactSchema.index({ waId: 1 });
+// Compound index to prevent duplicate contacts
+ContactSchema.index({ userId: 1, contactUserId: 1 }, { unique: true });
 
 export const Contact = mongoose.model<IContact>("Contact", ContactSchema);

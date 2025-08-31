@@ -1,4 +1,3 @@
-// scripts/dropIndex.ts
 import mongoose from "mongoose";
 import { Message } from "../models/Message"; // Adjust path to your Message model
 

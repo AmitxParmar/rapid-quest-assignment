@@ -11,18 +11,19 @@ import {
 import { Button } from "../ui/button";
 import { useTheme } from "next-themes";
 import { useUserStore } from "@/store/useUserStore";
+import useAuth from "@/hooks/useAuth";
 
 const ContactHeader = () => {
   const { theme, setTheme } = useTheme();
   const { toggleContactList } = useUserStore((state) => state);
 
   return (
-    <header className="h-16 sticky px-4 py-3 md:grid md:grid-cols-2 items-center">
+    <header className="h-16 sticky px-4 py-3 md:grid md:grid-cols-2 items-center justify-around">
       <div className="cursor-pointer pl-2.5 hidden md:block text-2xl font-semibold">
         WhatsApp
       </div>
-      <div className="flex md:gap-1 justify-between items-center">
-        <AccountSwitcher />
+      <div className="flex justify-end-safe md:gap-1 items-center">
+        {/* {!isGuest ? null : <AccountSwitcher />} */}
         <div className="flex flex-row items-center gap-2">
           <Button
             size="icon"

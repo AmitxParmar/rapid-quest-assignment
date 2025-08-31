@@ -1,14 +1,14 @@
 import {
   fetchAllConversations,
-  getContacts,
   markMessagesAsRead,
+  getConversationId,
 } from "@/services/conversations.service";
-import { useUserStore } from "@/store/useUserStore";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
 import { api } from "@/lib/api";
-import { Conversation } from "@/types";
+import { Conversation, User } from "@/types";
+import useAuth from "@/hooks/useAuth";
 
 // Global socket singleton to prevent multiple connections
 let globalSocket: Socket | null = null;
@@ -27,7 +27,7 @@ function getSocket() {
 
 // Fetch all conversations, cache for 1 minute, do not refetch if cached
 export function useConversations() {
-  const { activeUser } = useUserStore((state) => state);
+  const { user } = useAuth();
   const qc = useQueryClient();
   const listenerRef = useRef<((conversation: Conversation) => void) | null>(
     null
@@ -44,7 +44,7 @@ export function useConversations() {
 
   useEffect(() => {
     // Only run in browser and when activeUser is available
-    if (!activeUser?.waId) return;
+    if (!user?.waId) return;
 
     const socket = getSocket();
 
@@ -54,7 +54,7 @@ export function useConversations() {
 
       // Update the conversations cache
       qc.setQueryData(
-        ["conversations", activeUser.waId],
+        ["conversations", user.waId],
         (oldConvo: Conversation[] | undefined) => {
           if (!oldConvo) return oldConvo;
 
@@ -93,7 +93,7 @@ export function useConversations() {
 
       // Update the conversations cache with the updated conversation
       qc.setQueryData(
-        ["conversations", activeUser.waId],
+        ["conversations", user.waId],
         (oldConvo: Conversation[] | undefined) => {
           if (!oldConvo) return oldConvo;
 
@@ -156,13 +156,13 @@ export function useConversations() {
         markAsReadListenerRef.current = null;
       }
     };
-  }, [activeUser?.waId, qc]);
+  }, [user?.waId, qc]);
 
   return useQuery({
-    queryKey: ["conversations", activeUser.waId],
-    queryFn: () => fetchAllConversations(activeUser.waId),
+    queryKey: ["conversations", user?.waId],
+    queryFn: () => fetchAllConversations(),
     retry: 2,
-    enabled: !!activeUser,
+    enabled: !!user?.waId,
 
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -193,11 +193,11 @@ export function useMarkAsRead(id: string) {
 
 // Hook to automatically mark messages as read when conversation is opened
 export function useAutoMarkAsRead() {
-  const { activeUser } = useUserStore((state) => state);
+  const { user } = useAuth();
   const markAsReadMutation = useMarkAsRead("auto");
 
   const markConversationAsRead = (conversationId: string) => {
-    if (!activeUser?.waId) return;
+    if (!user?.waId) return;
 
     console.log(
       "Auto marking messages as read for conversation:",
@@ -206,18 +206,26 @@ export function useAutoMarkAsRead() {
 
     markAsReadMutation.mutate({
       conversationId,
-      waId: activeUser.waId,
+      waId: user.waId,
     });
   };
 
   return { markConversationAsRead, isLoading: markAsReadMutation.isPending };
 }
 
-// Fetch all contacts
-export function useContacts() {
-  return useQuery({
-    queryKey: ["contacts"],
-    queryFn: getContacts,
-    retry: 2,
+// Returns a mutation to get or create a conversation ID between two users
+export function useGetConversationId({
+  from,
+  to,
+}: {
+  from: User["waId"];
+  to: User["waId"];
+}) {
+  return useMutation({
+    mutationKey: ["get-conversation-id", from, to],
+    mutationFn: async () => {
+      // Calls the service to get or create the conversation
+      return await getConversationId({ from, to });
+    },
   });
 }

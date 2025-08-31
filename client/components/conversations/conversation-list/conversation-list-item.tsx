@@ -8,6 +8,7 @@ import { getOtherParticipant } from "@/utils";
 import { useRouter } from "next/navigation";
 import { Conversation } from "@/types";
 import { useMarkAsRead } from "@/hooks/useConversations";
+import useAuth from "@/hooks/useAuth";
 
 type ChatListItemProps = {
   data: Conversation;
@@ -18,12 +19,13 @@ type ChatListItemProps = {
 const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
   ({ data, isContactsPage = false, onClick }) => {
     const router = useRouter();
-    const { activeUser, setActiveChatUser } = useUserStore((state) => state);
+    const { user } = useAuth();
+    const { setActiveChatUser } = useUserStore((state) => state);
 
     // Memoize other participant for performance
     const otherParticipant = useMemo(
-      () => getOtherParticipant(data.participants, activeUser),
-      [data.participants, activeUser]
+      () => getOtherParticipant(data.participants, user),
+      [data.participants, user]
     );
 
     // Memoize unread count
@@ -38,7 +40,7 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
 
     // is own message
     const isOwnMessage =
-      lastMessage?.from === activeUser?.waId &&
+      lastMessage?.from === user?.waId &&
       ["sent", "delivered", "read"].includes(lastMessage?.status);
 
     // Memoize time
@@ -59,7 +61,7 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
         e.stopPropagation();
 
         if (otherParticipant) {
-          setActiveChatUser(otherParticipant);
+          setActiveChatUser({ ...otherParticipant, isOnline: true });
         }
 
         router.push(
@@ -71,7 +73,7 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
         data.conversationId,
         data?.participants,
         data.unreadCount,
-        activeUser,
+        user,
         setActiveChatUser,
       ]
     );
@@ -82,7 +84,6 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
         // No 'about' property, so just show a non-breaking space
         return "\u00A0";
       }
-
       return (
         <div
           className="
@@ -96,7 +97,7 @@ const ConversationListItem: React.FC<ChatListItemProps> = React.memo(
           )}
         </div>
       );
-    }, [isContactsPage, lastMessage, activeUser?.waId]);
+    }, [isContactsPage, lastMessage, user?.waId]);
 
     // Render unread badge
     const renderUnreadBadge = useMemo(() => {

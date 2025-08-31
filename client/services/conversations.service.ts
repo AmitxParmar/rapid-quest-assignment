@@ -2,15 +2,13 @@ import { api } from "@/lib/api";
 import { Conversation } from "@/types";
 
 // Get all conversations
-export async function fetchAllConversations(
-  userId: string
-): Promise<Conversation[] | []> {
-  const response = await api.get(`/api/conversations/${userId}`);
+export async function fetchAllConversations(): Promise<Conversation[] | []> {
+  const response = await api.get(`/api/conversations`);
   return response.data.data || [];
 }
 
 type MarkRead = {
-  successs: true;
+  success: true;
   message: string;
 };
 
@@ -22,8 +20,11 @@ export async function markMessagesAsRead(conversationId: string, waId: string) {
   return res.data as MarkRead;
 }
 
-// Fetch all contacts
-export async function getContacts() {
-  const res = await api.get("/api/conversations/contacts");
+// Get conversation by ID
+export async function getConversationId(participants: {
+  from: string;
+  to: string;
+}) {
+  const res = await api.post(`/api/conversations`, participants);
   return res.data.data;
 }

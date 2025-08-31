@@ -1,9 +1,159 @@
+import mongoose from "mongoose";
+import app from "../app";
 import { Request, Response } from "express";
 import { Conversation } from "../models/Conversation";
-import mongoose from "mongoose";
 import { Message } from "../models/Message";
-import app from "../app";
 import { Contact } from "../models/Contact";
+import { User, IUser } from "../models/User";
+
+interface AuthRequest extends Request {
+  user?: IUser;
+}
+
+
+/**
+ * Get or create a conversation ID for two participants.
+ *
+ * @route POST /api/conversations
+ * @param {Request} req - Express request object (expects from and to in body)
+ * @param {Response} res - Express response object
+ * @returns {Promise<Response>}
+ * @description
+ *   Finds existing conversation between two participants or creates a new one.
+ *   Responds with conversation ID for navigation.
+ */
+export const getConversationId = async (
+  req: AuthRequest,
+  res: Response
+): Promise<Response> => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
+    const { to } = req.body;
+    const from = req.user.waId; // Use authenticated user's waId
+
+    // Validate required fields
+    if (!to) {
+      return res.status(400).json({
+        success: false,
+        message: "'to' field is required",
+      });
+    }
+
+    // Validate field types
+    if (typeof to !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "'to' must be a string",
+      });
+    }
+
+    // Trim and validate non-empty
+    const fromId = from.trim();
+    const toId = to.trim();
+
+    if (!fromId || !toId) {
+      return res.status(400).json({
+        success: false,
+        message: "Both 'from' and 'to' must be non-empty strings",
+      });
+    }
+
+    // Validate they are different
+    if (fromId === toId) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot create conversation with the same participant",
+      });
+    }
+
+    // Look for existing conversation between these two participants
+    // Search regardless of participant order
+    const existingConversation = await Conversation.findOne({
+      $and: [
+        { "participants.waId": fromId },
+        { "participants.waId": toId },
+        { participants: { $size: 2 } } // Ensure it's a 2-person conversation
+      ]
+    });
+
+    if (existingConversation) {
+      // Return existing conversation
+      return res.status(200).json({
+        success: true,
+        data: {
+          conversationId: existingConversation?.toString() || existingConversation.id ,
+          isNew: false,
+          participants: existingConversation.participants,
+        },
+      });
+    }
+
+    // No existing conversation found, need to create new one
+    // Get participant details from User model
+    const users = await User.find({
+      waId: { $in: [fromId, toId] }
+    });
+
+    // Validate both users exist
+    if (users.length !== 2) {
+      const foundIds = users.map(u => u.waId);
+      const missingIds = [fromId, toId].filter(id => !foundIds.includes(id));
+
+      return res.status(404).json({
+        success: false,
+        message: `User(s) not found: ${missingIds.join(', ')}`,
+      });
+    }
+
+    // Create new conversation
+    const participants = users.map(user => ({
+      waId: user.waId,
+      name: user.name || `User ${user.waId}`,
+      profilePicture: user.profilePicture,
+    }));
+
+    // Generate unique conversation ID
+    const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const newConversation = new Conversation({
+      conversationId,
+      participants,
+      lastMessage: {
+        text: "",
+        timestamp: Date.now(),
+        from: fromId,
+        status: "sent",
+      },
+      unreadCount: 0,
+      isArchived: false,
+    });
+
+    const savedConversation = await newConversation.save();
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        conversationId: savedConversation._id?.toString() || savedConversation.id,
+        isNew: true,
+        participants: savedConversation.participants,
+      },
+    });
+
+  } catch (error) {
+    console.error("Error in getConversationId:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to process conversation ID request",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
 
 /**
  * Get all conversations for WhatsApp-like list for a specific user.
@@ -17,22 +167,21 @@ import { Contact } from "../models/Contact";
  *   Responds with an array of conversation objects.
  */
 export const getConversations = async (
-  req: Request,
+  req: AuthRequest,
   res: Response
 ): Promise<Response> => {
   try {
-    const { userId } = req.params; // Get userId from URL params
-
-    if (!userId) {
-      return res.status(400).json({
+    if (!req.user) {
+      return res.status(401).json({
         success: false,
-        message: "User ID is required",
+        message: "User not authenticated",
       });
     }
 
     const conversations = await Conversation.find({
       isArchived: false,
-      "participants.waId": userId, // Filter conversations where user is a participant
+      "participants.waId": req.user.waId, // Filter conversations where authenticated user is a participant
+      "lastMessage.timestamp": { $exists: true, $ne: null }, // Only include conversations with at least one message
     })
       .sort({ "lastMessage.timestamp": -1 })
       .lean();
@@ -64,12 +213,19 @@ export const getConversations = async (
  *   Responds with the status of the update and the lastMessage before and after the update.
  */
 export const markAsRead = async (
-  req: Request,
+  req: AuthRequest,
   res: Response
 ): Promise<Response> => {
   try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
     const { conversationId } = req.params;
-    const { waId } = req.body; // The user marking messages as read
+    const waId = req.user.waId; // Use authenticated user's waId
 
     if (!mongoose.Types.ObjectId.isValid(conversationId as string)) {
       console.log("[markAsRead] Invalid conversationId:", conversationId);
@@ -230,40 +386,6 @@ export const markAsRead = async (
     return res.status(500).json({
       success: false,
       message: "Failed to mark messages as read",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
-};
-
-/**
- * Get contact details.
- *
- * @route GET /api/contacts
- * @param {Request} req - Express request object
- * @param {Response} res - Express response object
- * @returns {Promise<void>}
- * @description
- *   Fetches all contacts, selecting only relevant fields, and returns them sorted by name.
- */
-export const getContacts = async (
-  req: Request,
-  res: Response
-): Promise<Response> => {
-  try {
-    const contacts = await Contact.find({})
-      .select("waId name profilePicture isOnline lastSeen")
-      .sort({ name: 1 })
-      .lean();
-
-    return res.status(200).json({
-      success: true,
-      data: contacts,
-    });
-  } catch (error) {
-    console.error("Error fetching contacts:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch contacts",
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }

@@ -6,9 +6,11 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { useSendMessage } from "@/hooks/useMessages";
 import { useUserStore } from "@/store/useUserStore";
+import useAuth from "@/hooks/useAuth";
 
 function MessageBar({}) {
-  const { activeUser, activeChatUser } = useUserStore((state) => state);
+  const { activeChatUser } = useUserStore((state) => state);
+  const { user: activeUser } = useAuth();
   const { mutate: sendMessage } = useSendMessage();
   const [message, setMessage] = useState("");
   const [showEmojiPicker, setEmojiPicker] = useState(false);

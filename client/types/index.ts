@@ -40,3 +40,27 @@ export type Message = {
   createdAt: string | Date;
   updatedAt: string | Date;
 };
+
+// Contact type based on the provided array of objects
+export type Contact = {
+  _id: string;
+  waId: string;
+  name: string;
+  isOnline: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type User = {
+  _id?: string;
+  waId: string;
+  name?: string;
+  profilePicture?: string;
+  status?: string;
+  lastSeen?: Date | string;
+  isOnline: boolean;
+  password?: string;
+  refreshToken?: string;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+};

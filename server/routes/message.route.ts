@@ -4,16 +4,13 @@ import {
   sendMessage,
   updateMessageStatus,
 } from "../controllers/message.controller";
+import { authenticateToken } from "../middlewares/auth.middleware";
 
 const router = express.Router();
 
-// GET /api/messages/:conversationId - Get messages for a specific conversation
-router.get("/:conversationId", getMessages);
-
-// POST /api/messages - Send a new message
-router.post("/", sendMessage);
-
-// PUT /api/messages/:messageId/status - Update message delivery status
-router.put("/:messageId/status", updateMessageStatus);
+// All message routes require authentication
+router.get("/:conversationId", authenticateToken, getMessages);
+router.post("/", authenticateToken, sendMessage);
+router.put("/:messageId/status", authenticateToken, updateMessageStatus);
 
 export default router;

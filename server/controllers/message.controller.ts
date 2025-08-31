@@ -2,42 +2,14 @@ import { Request, Response } from "express";
 import app from "../app";
 import { Message } from "../models/Message";
 import { Conversation } from "../models/Conversation";
-import { Contact } from "../models/Contact";
+import { User, IUser } from "../models/User";
 import mongoose from "mongoose";
 
-/**
- * Get all conversations for WhatsApp-like list.
- *
- * @route GET /api/conversations
- * @param {Request} req - Express request object
- * @param {Response} res - Express response object
- * @returns {Promise<void>}
- * @description
- *   Fetches all non-archived conversations, sorted by the latest message timestamp.
- *   Responds with an array of conversation objects.
- */
-export const getConversations = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const conversations = await Conversation.find({ isArchived: false })
-      .sort({ "lastMessage.timestamp": -1 })
-      .lean();
+interface AuthRequest extends Request {
+  user?: IUser;
+}
 
-    res.status(200).json({
-      success: true,
-      data: conversations,
-    });
-  } catch (error) {
-    console.error("Error fetching conversations:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch conversations",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
-};
+
 
 /**
  * Get all messages for a specific conversation.
@@ -50,8 +22,15 @@ export const getConversations = async (
  *   Fetches paginated messages for a given conversation.
  *   Returns messages and pagination info.
  */
-export const getMessages = async (req: Request, res: Response) => {
+export const getMessages = async (req: AuthRequest, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
     const { conversationId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 25;
@@ -67,6 +46,19 @@ export const getMessages = async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         message: "Invalid conversation ID",
+      });
+    }
+
+    // Verify user has access to this conversation
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      "participants.waId": req.user.waId
+    });
+
+    if (!conversation) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied to this conversation",
       });
     }
 
@@ -125,26 +117,34 @@ export const getMessages = async (req: Request, res: Response) => {
  *   Validates input, finds or creates a conversation, creates a new message,
  *   updates the conversation's last message, emits a socket event, and responds with the new message.
  */
-export const sendMessage = async (req: Request, res: Response) => {
+export const sendMessage = async (req: AuthRequest, res: Response) => {
   try {
-    const { from, to, text, type = "text", direction = "outgoing" } = req.body;
-
-    // Validate required fields
-    if (!from || !to || !text) {
-      return res.status(400).json({
+    if (!req.user) {
+      return res.status(401).json({
         success: false,
-        message: "Missing required fields: from, to, text",
+        message: "User not authenticated",
       });
     }
 
-    // Get sender and receiver contact info
-    const senderContact = await Contact.findOne({ waId: from });
-    const receiverContact = await Contact.findOne({ waId: to });
+    const { to, text, type = "text", direction = "outgoing" } = req.body;
+    const from = req.user.waId; // Use authenticated user's waId
 
-    if (!senderContact || !receiverContact) {
+    // Validate required fields
+    if (!to || !text) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: to, text",
+      });
+    }
+
+    // Get sender and receiver user info
+    const senderUser = req.user;
+    const receiverUser = await User.findOne({ waId: to });
+
+    if (!receiverUser) {
       return res.status(404).json({
         success: false,
-        message: "Sender or receiver contact not found",
+        message: "Receiver not found",
       });
     }
 
@@ -165,13 +165,13 @@ export const sendMessage = async (req: Request, res: Response) => {
         participants: [
           {
             waId: from,
-            name: senderContact.name,
-            profilePicture: senderContact.profilePicture,
+            name: senderUser.name || `User ${from}`,
+            profilePicture: senderUser.profilePicture,
           },
           {
             waId: to,
-            name: receiverContact.name,
-            profilePicture: receiverContact.profilePicture,
+            name: receiverUser.name || `User ${to}`,
+            profilePicture: receiverUser.profilePicture,
           },
         ],
         lastMessage: {
@@ -198,7 +198,7 @@ export const sendMessage = async (req: Request, res: Response) => {
       waId: from,
       direction,
       contact: {
-        name: senderContact.name,
+        name: senderUser.name || `User ${from}`,
         waId: from,
       },
     });
@@ -268,8 +268,15 @@ export const sendMessage = async (req: Request, res: Response) => {
  *   Updates the status of a specific message (sent -> delivered -> read).
  *   Emits socket events to notify clients about the status change.
  */
-export const updateMessageStatus = async (req: Request, res: Response) => {
+export const updateMessageStatus = async (req: AuthRequest, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
     const { messageId } = req.params;
     const { status } = req.body;
 

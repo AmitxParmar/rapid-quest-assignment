@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
 const AccountSwitcher = () => {
-  const { activeUser, setActiveUser, users } = useUserStore();
+  const { guestUser, setGuestUser, users } = useUserStore();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -25,7 +25,7 @@ const AccountSwitcher = () => {
           variant="ghost"
           className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors focus:outline-none focus:ring-0 focus-visible:ring-0"
         >
-          <span>{activeUser?.name || "Select Account"}</span>
+          <span>{guestUser?.name || "Select Account"}</span>
           <ChevronDown className="w-4 h-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -33,11 +33,11 @@ const AccountSwitcher = () => {
         <DropdownMenuLabel>Switch Account</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuRadioGroup
-          value={activeUser.waId}
+          value={guestUser?.waId}
           onValueChange={(waId) => {
             const user = users.find((u) => u.waId === waId);
             if (user) {
-              setActiveUser(user);
+              setGuestUser(user);
               // Reset all TanStack Query cache on account switch
               queryClient.clear();
               // Clear the URL (remove query and path, go to root)

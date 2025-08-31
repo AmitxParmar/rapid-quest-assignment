@@ -1,7 +1,7 @@
 import React from "react";
-import MessageStatus from "../common/message-status";
+import MessageStatus from "@/components/common/message-status";
 import { calculateTime } from "@/utils/calculateTime";
-import { Avatar, AvatarFallback } from "../ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 import { ChevronDown } from "lucide-react";
 import { Message } from "@/types";

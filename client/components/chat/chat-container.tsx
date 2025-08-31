@@ -6,6 +6,7 @@ import { useUserStore } from "@/store/useUserStore";
 import { memo, useMemo, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, XCircle } from "lucide-react";
+import useAuth from "./../../hooks/useAuth";
 
 /**
  * ChatContainer with reverse scroll (bottom-to-top):
@@ -16,7 +17,7 @@ import { PlusCircle, XCircle } from "lucide-react";
 function ChatContainer({ conversationId }: { conversationId: string }) {
   const { data, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useMessages(conversationId);
-  const { activeUser } = useUserStore((state) => state);
+  const { user: activeUser } = useAuth();
   const { markConversationAsRead } = useAutoMarkAsRead();
 
   // Memoize the rendered message bubbles for performance
@@ -26,7 +27,7 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
     return data.pages
       .flatMap((page) => page.messages)
       .map((message, index) => {
-        const isSender = activeUser.waId === message.from;
+        const isSender = activeUser?.waId === message.from;
         const isReceiver = !isSender;
         return (
           <MessageBubble
@@ -37,7 +38,7 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
           />
         );
       });
-  }, [data?.pages, activeUser.waId]);
+  }, [data?.pages, activeUser?.waId]);
 
   // Ref for the scrollable container
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -58,7 +59,7 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
       const hasUnreadMessages = data.pages.some((page) =>
         page.messages.some(
           (message) =>
-            message.to === activeUser.waId && message.status !== "read"
+            message.to === activeUser?.waId && message.status !== "read"
         )
       );
 
@@ -74,7 +75,7 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
     conversationId,
     data?.pages,
     isFetching,
-    activeUser.waId,
+    activeUser?.waId,
     markConversationAsRead,
   ]);
 

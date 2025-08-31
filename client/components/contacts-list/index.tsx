@@ -1,34 +1,31 @@
 import { useUserStore } from "@/store/useUserStore";
+import { Contact } from "@/types";
 import { ArrowLeft, SearchIcon } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useContacts } from "@/hooks/useContacts";
 
-// Dummy data for contacts grouped by initial letter
-const dummyContacts = {
-  A: [
-    { id: 1, name: "Alice Anderson", status: "Available" },
-    { id: 2, name: "Aaron Albert", status: "Busy" },
-  ],
-  B: [
-    { id: 3, name: "Bob Brown", status: "At work" },
-    { id: 4, name: "Bella Blue", status: "Offline" },
-  ],
-  C: [{ id: 5, name: "Charlie Chaplin", status: "Online" }],
-};
+type ContactsGrouped = Record<string, Contact[]>;
 
 function ChatListItem({
   data,
+  onClick,
 }: {
-  data: { id: number; name: string; status: string };
+  data: Contact;
+  onClick: (e: React.MouseEvent) => void;
 }) {
   return (
-    <div className="flex items-center px-6 py-3 hover:bg-accent cursor-pointer transition-colors">
+    <div
+      className="flex items-center px-6 py-3 hover:bg-accent cursor-pointer transition-colors"
+      onClick={onClick}
+    >
       <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-lg font-bold text-gray-700 mr-4">
         {data.name[0]}
       </div>
       <div className="flex flex-col min-w-0">
         <span className="font-medium text-primary truncate">{data.name}</span>
         <span className="text-xs text-muted-foreground truncate">
-          {data.status}
+          {data.isOnline ? "Online" : "Offline"}
         </span>
       </div>
     </div>
@@ -36,26 +33,59 @@ function ChatListItem({
 }
 
 const ContactList = () => {
-  const [allContacts, setAllContacts] = useState(dummyContacts);
-  const [searchContacts, setSearchContacts] = useState(dummyContacts);
+  // allContacts might be undefined or an empty object
+  const { data: allContacts } = useContacts();
   const [searchTerm, setSearchTerm] = useState("");
-  const { setContactListOpen } = useUserStore((state) => state);
+  const { setContactListOpen, setActiveChatUser } = useUserStore(
+    (state) => state
+  );
+  const router = useRouter();
 
-  useEffect(() => {
-    const filteredData: typeof dummyContacts = {
-      A: [],
-      B: [],
-      C: [],
-    };
-    (Object.keys(allContacts) as Array<keyof typeof allContacts>).forEach(
-      (key) => {
-        filteredData[key] = allContacts[key].filter((obj) =>
+  // Memoize filtered contacts to prevent infinite re-renders
+  const searchContacts = useMemo(() => {
+    // If contacts are missing or empty, return empty object
+    if (!allContacts || Object.keys(allContacts).length === 0) {
+      return {};
+    }
+
+    // Filter contacts by search term
+    const filteredData: ContactsGrouped = {};
+    Object.keys(allContacts).forEach((key) => {
+      // Defensive: allContacts[key] might be undefined or not an array
+      const group = allContacts[key];
+      // Only filter if group is an array
+      if (Array.isArray(group)) {
+        filteredData[key] = group.filter((obj: Contact) =>
           obj.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
+      } else {
+        filteredData[key] = [];
       }
-    );
-    setSearchContacts(searchTerm.length ? filteredData : allContacts);
+    });
+    return searchTerm.length ? filteredData : allContacts;
   }, [searchTerm, allContacts]);
+
+  // handleConversation like in conversation-list-item.tsx
+  const handleConversation = useCallback(
+    (contact: Contact) => (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (contact) {
+        setActiveChatUser(contact);
+      }
+      // Push to conversation page with waId (no conversationId yet, so just use waId)
+      router.push(`/conversation/new/${contact.waId}`);
+      setContactListOpen(false);
+    },
+    [router, setActiveChatUser, setContactListOpen]
+  );
+
+  // If contacts are missing or empty, show a message
+  const isEmpty =
+    !allContacts ||
+    Object.keys(allContacts).length === 0 ||
+    Object.values(allContacts).every(
+      (arr) => !Array.isArray(arr) || arr.length === 0
+    );
 
   return (
     <div className="flex-auto w-full overflow-auto px-1.5 max-h-full custom-scrollbar">
@@ -86,24 +116,35 @@ const ContactList = () => {
               </div>
             </div>
           </div>
-          {Object.entries(searchContacts).map(([initialLetter, userList]) => {
-            // Only show section if there are users in it
-            if (!userList.length) return null;
-            return (
-              <div key={initialLetter}>
-                {searchTerm.length === 0 && (
-                  <div className="text-teal-light pl-10 py-2 font-semibold text-xs uppercase tracking-wider">
-                    {initialLetter}
+          {isEmpty ? (
+            <div className="text-center text-muted-foreground py-8">
+              No contacts found.
+            </div>
+          ) : (
+            Object.entries(searchContacts).map(([initialLetter, userList]) => {
+              // Only show section if there are users in it
+              if (!Array.isArray(userList) || userList.length === 0)
+                return null;
+              return (
+                <div key={initialLetter}>
+                  {searchTerm.length === 0 && (
+                    <div className="text-teal-light pl-10 py-2 font-semibold text-xs uppercase tracking-wider">
+                      {initialLetter}
+                    </div>
+                  )}
+                  <div>
+                    {userList.map((contact: Contact) => (
+                      <ChatListItem
+                        data={contact}
+                        key={contact._id}
+                        onClick={handleConversation(contact)}
+                      />
+                    ))}
                   </div>
-                )}
-                <div>
-                  {userList.map((contact) => (
-                    <ChatListItem data={contact} key={contact.id} />
-                  ))}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
     </div>

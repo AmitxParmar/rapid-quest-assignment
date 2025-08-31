@@ -1,20 +1,41 @@
+import { User } from "@/types";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
-type User = {
-  name: string;
-  waId: string;
-};
-
 const users: User[] = [
-  { name: "Business Account (me)", waId: "911234567890" }, // this gonna be default
-  { name: "Ravi Kumar", waId: "919937320320" },
-  { name: "Neha Joshi", waId: "929967673820" },
+  {
+    name: "Business Account (me)",
+    waId: "911234567890",
+    isOnline: true,
+    profilePicture: "https://randomuser.me/api/portraits/men/1.jpg",
+    status: "Hey there! I am using WhaatsApp.",
+    lastSeen: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    name: "Ravi Kumar",
+    waId: "919937320320",
+    isOnline: false,
+    profilePicture: "https://randomuser.me/api/portraits/men/2.jpg",
+    status: "Available",
+    lastSeen: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    name: "Neha Joshi",
+    waId: "929967673820",
+    isOnline: false,
+    profilePicture: "https://randomuser.me/api/portraits/women/3.jpg",
+    status: "Busy",
+    lastSeen: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
 ];
 
 type UserStore = {
-  activeUser: User;
-  setActiveUser: (user: User) => void;
   users: User[];
   activeChatUser: User | null;
   setActiveChatUser: (user: User) => void;
@@ -27,8 +48,6 @@ type UserStore = {
 export const useUserStore = create<UserStore>()(
   persist(
     (set, get) => ({
-      activeUser: users[0], // set Business Account (me) as default
-      setActiveUser: (user) => set({ activeUser: user }),
       activeChatUser: null,
       setActiveChatUser: (user) => set({ activeChatUser: user }),
       setActiveChatUserById: (waId) => {
@@ -44,7 +63,6 @@ export const useUserStore = create<UserStore>()(
     {
       name: "active-user-storage",
       storage: createJSONStorage(() => sessionStorage),
-      partialize: (state) => ({ activeUser: state.activeUser }), // only persist activeUser
     }
   )
 );
