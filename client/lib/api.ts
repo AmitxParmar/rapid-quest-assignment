@@ -61,7 +61,7 @@ api.interceptors.response.use(
 
       try {
         // Try to refresh the token - server will set new cookies
-        const { data } = await refreshToken();
+        await refreshToken();
         // console.log(data);
         isRefreshing = false;
         onRefreshed();

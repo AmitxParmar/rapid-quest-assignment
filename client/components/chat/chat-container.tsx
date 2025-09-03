@@ -2,7 +2,6 @@ import MessageLoader from "../common/message-loader";
 import MessageBubble from "./message-bubble";
 import { useMessages } from "@/hooks/useMessages";
 import { useAutoMarkAsRead } from "@/hooks/useConversations";
-import { useUserStore } from "@/store/useUserStore";
 import { memo, useMemo, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, XCircle } from "lucide-react";
@@ -43,6 +42,10 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
   // Ref for the scrollable container
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Extracted dependencies for useEffect to satisfy exhaustive-deps
+  const pagesLength = data?.pages?.length;
+  const firstPageMessagesLength = data?.pages?.[0]?.messages?.length;
+
   // On mount and when messages change, scroll to bottom (which is visually the bottom, but flex-col-reverse makes it the top of the scroll)
   useEffect(() => {
     const el = scrollRef.current;
@@ -50,16 +53,23 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
       // Scroll to bottom (which is scrollTop = 0 in flex-col-reverse)
       el.scrollTop = 0;
     }
-  }, [conversationId, data?.pages?.length, data?.pages?.[0]?.messages?.length]);
+  }, [conversationId, pagesLength, firstPageMessagesLength]);
+
+  // Extracted dependencies for useEffect to satisfy exhaustive-deps
+  const pages = data?.pages;
+  const activeUserWaId = activeUser?.waId;
 
   // Auto mark messages as read when conversation is opened and messages are loaded
   useEffect(() => {
-    if (conversationId && data?.pages && data.pages.length > 0 && !isFetching) {
+    const shouldMarkAsRead =
+      conversationId && pages && pages.length > 0 && !isFetching;
+
+    if (shouldMarkAsRead) {
       // Check if there are any unread messages for the current user
-      const hasUnreadMessages = data.pages.some((page) =>
+      const hasUnreadMessages = pages.some((page) =>
         page.messages.some(
           (message) =>
-            message.to === activeUser?.waId && message.status !== "read"
+            message.to === activeUserWaId && message.status !== "read"
         )
       );
 
@@ -73,9 +83,9 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
     }
   }, [
     conversationId,
-    data?.pages,
+    pages,
     isFetching,
-    activeUser?.waId,
+    activeUserWaId,
     markConversationAsRead,
   ]);
 

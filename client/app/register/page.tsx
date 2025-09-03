@@ -1,11 +1,11 @@
 "use client";
 import React from "react";
-import { useLogin } from "@/hooks/useAuth";
+import { useRegister } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { loginSchema, type LoginSchema } from "@/schemas/auth";
+import { registerSchema, type RegisterSchema } from "@/schemas/auth";
 import {
   Form,
   FormField,
@@ -17,40 +17,25 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const DEMO_ACCOUNTS = [
-  { waId: "919937320320", password: "demo123" },
-  { waId: "91123456789", password: "demo123" },
-];
-
-function LoginPage() {
+function RegisterPage() {
   const router = useRouter();
-  const { mutate: login, isPending, error, data } = useLogin();
-  const form = useForm<LoginSchema>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { waId: "", password: "" },
+  const { mutate: register, isPending, error, data } = useRegister();
+  const form = useForm<RegisterSchema>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: { waId: "", name: "", password: "" },
     mode: "onTouched",
   });
 
-  const onSubmit = (values: LoginSchema) => {
-    const cleaned = {
+  const onSubmit = (values: RegisterSchema) => {
+    const payload = {
       waId: values.waId.replace(/\s+/g, ""),
+      name: values.name.trim(),
       password: values.password.replace(/\s+/g, ""),
     };
-    login(cleaned, {
+    register(payload, {
       onSuccess: () => {
         router.push("/");
       },
-    });
-  };
-
-  const handleDemoClick = (demo: { waId: string; password: string }) => {
-    form.setValue("waId", demo.waId, {
-      shouldTouch: true,
-      shouldValidate: true,
-    });
-    form.setValue("password", demo.password, {
-      shouldTouch: true,
-      shouldValidate: true,
     });
   };
 
@@ -77,7 +62,7 @@ function LoginPage() {
           </span>
         </div>
         <h2 className="text-xl font-semibold mb-4 text-primary-foreground">
-          Login
+          Create account
         </h2>
         <Form {...form}>
           <form
@@ -100,6 +85,19 @@ function LoginPage() {
             />
             <FormField
               control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Your name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Your name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="password"
               render={({ field }) => (
                 <FormItem>
@@ -112,46 +110,28 @@ function LoginPage() {
               )}
             />
             <Button type="submit" disabled={isPending} className="w-full">
-              {isPending ? "Logging in..." : "Login"}
+              {isPending ? "Creating..." : "Create account"}
             </Button>
             {error && (
               <div className="text-destructive text-sm text-center mt-1">
-                {error instanceof Error ? error.message : "Login failed"}
+                {typeof error === "object" &&
+                error !== null &&
+                "message" in error
+                  ? error.message || "Registration failed"
+                  : "Registration failed"}
               </div>
             )}
             {data && data.success && (
               <div className="text-green-600 dark:text-green-400 text-sm text-center mt-1">
-                Login successful!
+                Account created!
               </div>
             )}
           </form>
         </Form>
-        <div className="w-full mt-6">
-          <div className="text-muted-foreground text-xs mb-2 text-center">
-            Demo Accounts
-          </div>
-          <div className="flex flex-col gap-2">
-            {DEMO_ACCOUNTS.map((demo) => (
-              <button
-                key={demo.waId}
-                type="button"
-                className="w-full flex items-center justify-between px-3 py-2 border border-accent rounded bg-accent hover:bg-accent/80 text-accent-foreground text-sm transition"
-                onClick={() => handleDemoClick(demo)}
-              >
-                <span>
-                  <span className="font-medium">waId:</span> {demo.waId}
-                </span>
-                <span>
-                  <span className="font-medium">password:</span> {demo.password}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
         <div className="w-full mt-6 text-sm text-center text-muted-foreground">
-          New to WhatsApp?{" "}
-          <Link href="/register" className="text-primary hover:underline">
-            Create account
+          Already have an account?{" "}
+          <Link href="/login" className="text-primary hover:underline">
+            Login
           </Link>
         </div>
       </div>
@@ -159,4 +139,4 @@ function LoginPage() {
   );
 }
 
-export default LoginPage;
+export default RegisterPage;

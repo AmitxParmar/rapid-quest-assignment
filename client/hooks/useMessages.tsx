@@ -14,6 +14,7 @@ import {
 import { useEffect, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
 import api from "@/lib/api";
+import useAuth from "./useAuth";
 
 // Global socket singleton to prevent multiple connections
 let globalSocket: Socket | null = null;
@@ -211,15 +212,13 @@ export function useMessages(conversationId: string) {
 // Send a new message and update the cache for the correct conversation
 
 export function useSendMessage() {
-  const { activeUser } = useUserStore((state) => state);
-
   const qc = useQueryClient();
   return useMutation<IAddMessageResponse, unknown, IAddMessageRequest>({
     mutationFn: (data) => sendMessage(data),
     onSuccess: (data, _) => {
       // Only update conversations cache - messages cache will be updated by socket
       qc.setQueryData(
-        ["conversations", activeUser.waId],
+        ["conversations"],
         (oldConvo: Conversation[] | undefined) => {
           if (!oldConvo) return oldConvo;
           // Find the conversation to update

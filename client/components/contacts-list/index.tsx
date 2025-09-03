@@ -66,10 +66,13 @@ function AddContactDialog({
       setWaId("");
       setNickname("");
       onOpenChange(false);
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.message || err?.message || "Failed to add contact."
-      );
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : (err as { response?: { data?: { message?: string } } })?.response
+              ?.data?.message || "Failed to add contact.";
+      setError(errorMessage);
     }
   };
 

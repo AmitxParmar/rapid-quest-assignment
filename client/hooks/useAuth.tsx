@@ -10,6 +10,7 @@ import {
   updateProfile,
   changePassword,
 } from "@/services/auth.service";
+import { User } from "@/types";
 
 // Query keys
 export const authKeys = {
@@ -188,7 +189,7 @@ const useAuth = () => {
   }, [isUnauthenticated, isLoading, pathname, router]);
 
   return {
-    user: userQuery.data,
+    user: userQuery.data as User,
     isAuthenticated,
     isUnauthenticated,
     isLoading,
