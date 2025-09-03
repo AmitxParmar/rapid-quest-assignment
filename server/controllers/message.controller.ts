@@ -9,8 +9,6 @@ interface AuthRequest extends Request {
   user?: IUser;
 }
 
-
-
 /**
  * Get all messages for a specific conversation.
  *
@@ -40,36 +38,65 @@ export const getMessages = async (req: AuthRequest, res: Response) => {
     console.log("[getMessages] conversationId:", conversationId);
     console.log("[getMessages] page:", page, "limit:", limit, "skip:", skip);
 
-    // Validate conversationId
-    if (!mongoose.Types.ObjectId.isValid(conversationId as string)) {
-      console.error("[getMessages] Invalid conversation ID:", conversationId);
-      return res.status(400).json({
-        success: false,
-        message: "Invalid conversation ID",
-      });
+    // Validate or resolve conversationId
+    let resolvedConversationId: string = conversationId as string;
+    if (!mongoose.Types.ObjectId.isValid(resolvedConversationId)) {
+      // Fallback: allow client to pass Conversation.conversationId (string), resolve to _id
+      const convByPublicId = await Conversation.findOne({
+        conversationId: resolvedConversationId,
+      })
+        .select({ _id: 1 })
+        .lean();
+      if (!convByPublicId?._id) {
+        console.error("[getMessages] Invalid conversation ID:", conversationId);
+        return res.status(400).json({
+          success: false,
+          message: "Invalid conversation ID",
+        });
+      }
+      resolvedConversationId = convByPublicId._id.toString();
+      console.log(
+        "[getMessages] Resolved public conversationId to _id:",
+        resolvedConversationId
+      );
     }
 
-    // Verify user has access to this conversation
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      "participants.waId": req.user.waId
-    });
-
+    // --- Check if user is a participant in the conversation ---
+    const conversation = await Conversation.findById(
+      new mongoose.Types.ObjectId(resolvedConversationId)
+    ).lean();
     if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: "Conversation not found",
+      });
+    }
+    // Check if the user is a participant
+    const normalizeWaId = (id: string) =>
+      id?.startsWith("91") ? id.trim() : `91${id?.trim()}`;
+    const currentWaId = normalizeWaId(req.user!.waId);
+    const isParticipant = Array.isArray(conversation.participants)
+      ? conversation.participants.some((p: any) => p?.waId === currentWaId)
+      : false;
+
+    if (!isParticipant) {
       return res.status(403).json({
         success: false,
-        message: "Access denied to this conversation",
+        message: "You are not a participant in this conversation",
       });
     }
 
     // Debug: about to query messages
     console.log(
       "[getMessages] Querying messages for conversationId:",
-      conversationId
+      resolvedConversationId
     );
 
-    const messages = await Message.find({ conversationId })
-      .sort({ timestamp: -1 }) // Oldest first for chat display
+    // NOTE: The field in Message is likely "conversationId" (ObjectId), so make sure to query by ObjectId
+    const messages = await Message.find({
+      conversationId: new mongoose.Types.ObjectId(resolvedConversationId),
+    })
+      .sort({ timestamp: 1 }) // Ascending order: oldest first for chat display
       .skip(skip)
       .limit(limit)
       .lean();
@@ -77,7 +104,9 @@ export const getMessages = async (req: AuthRequest, res: Response) => {
     // Debug: messages found
     console.log(`[getMessages] Found ${messages.length} messages`);
 
-    const totalMessages = await Message.countDocuments({ conversationId });
+    const totalMessages = await Message.countDocuments({
+      conversationId: new mongoose.Types.ObjectId(resolvedConversationId),
+    });
 
     // Debug: total messages count
     console.log(
@@ -126,8 +155,11 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const { to, text, type = "text", direction = "outgoing" } = req.body;
+    const { to, text, type = "text" } = req.body;
     const from = req.user.waId; // Use authenticated user's waId
+
+    const normalizeWaId = (id: string) =>
+      id?.startsWith("91") ? id.trim() : `91${id?.trim()}`;
 
     // Validate required fields
     if (!to || !text) {
@@ -148,58 +180,70 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Find or create conversation
+    const fromId = normalizeWaId(from);
+    const toId = normalizeWaId(to);
+
+    // Find or create conversation (aligned with getConversationId)
     let conversation = await Conversation.findOne({
-      $or: [
-        {
-          "participants.waId": { $all: [from, to] },
-          participants: { $size: 2 },
-        },
+      $and: [
+        { "participants.waId": fromId },
+        { "participants.waId": toId },
+        { participants: { $size: 2 } },
       ],
     });
+
+    console.log(
+      `[sendMessage] lookup from=${fromId} to=${toId} existing=${conversation?._id}`
+    );
 
     if (!conversation) {
       // Create new conversation
       conversation = new Conversation({
-        conversationId: `${from}_${to}_${Date.now()}`,
         participants: [
           {
-            waId: from,
-            name: senderUser.name || `User ${from}`,
+            waId: fromId,
+            name: senderUser.name || `User ${fromId}`,
             profilePicture: senderUser.profilePicture,
           },
           {
-            waId: to,
-            name: receiverUser.name || `User ${to}`,
+            waId: toId,
+            name: receiverUser.name || `User ${toId}`,
             profilePicture: receiverUser.profilePicture,
           },
         ],
         lastMessage: {
           text,
           timestamp: Date.now(),
-          from,
+          from: fromId,
           status: "sent",
         },
         unreadCount: 1,
       });
 
       await conversation.save();
+      console.log(
+        `[sendMessage] created conversationId=${
+          conversation._id
+        } participants=${conversation.participants
+          .map((p: any) => p.waId)
+          .join(",")}`
+      );
     }
 
     // Create new message
     const newMessage = new Message({
       conversationId: conversation._id,
-      from,
-      to,
+      from: fromId,
+      to: toId,
       text,
       timestamp: Date.now(),
       status: "sent",
       type,
-      waId: from,
-      direction,
+      waId: fromId,
+
       contact: {
-        name: senderUser.name || `User ${from}`,
-        waId: from,
+        name: senderUser.name || `User ${fromId}`,
+        waId: fromId,
       },
     });
 
@@ -209,7 +253,7 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     conversation.lastMessage = {
       text,
       timestamp: newMessage.timestamp,
-      from,
+      from: fromId,
       status: "sent",
     };
     conversation.unreadCount += 1;

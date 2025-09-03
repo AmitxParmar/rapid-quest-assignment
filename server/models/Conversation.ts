@@ -1,6 +1,5 @@
 import mongoose, { type Document, Schema } from "mongoose";
 
-// Remove the unique constraint from conversationId to avoid duplicate index warning
 export interface IConversation extends Document {
   conversationId: string;
   participants: {
@@ -8,7 +7,7 @@ export interface IConversation extends Document {
     name: string;
     profilePicture?: string;
   }[];
-  lastMessage: {
+  lastMessage?: {
     text: string;
     timestamp: number;
     from: string;
@@ -22,7 +21,11 @@ export interface IConversation extends Document {
 
 const ConversationSchema = new Schema<IConversation>(
   {
-    conversationId: { type: String, required: true }, // removed unique: true
+    conversationId: {
+      type: String,
+      required: true,
+      default: () => new mongoose.Types.ObjectId().toHexString(), // Auto-generate conversationId
+    },
     participants: [
       {
         waId: { type: String, required: true },
@@ -31,10 +34,10 @@ const ConversationSchema = new Schema<IConversation>(
       },
     ],
     lastMessage: {
-      text: { type: String, required: true },
-      timestamp: { type: Number, required: true },
-      from: { type: String, required: true },
-      status: { type: String, required: true },
+      text: { type: String },
+      timestamp: { type: Number },
+      from: { type: String },
+      status: { type: String },
     },
     unreadCount: { type: Number, default: 0 },
     isArchived: { type: Boolean, default: false },
@@ -44,7 +47,6 @@ const ConversationSchema = new Schema<IConversation>(
   }
 );
 
-// Only define the index via schema.index(), not via unique: true above
 ConversationSchema.index({ conversationId: 1 });
 ConversationSchema.index({ "lastMessage.timestamp": -1 });
 

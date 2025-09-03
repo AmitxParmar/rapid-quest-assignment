@@ -56,15 +56,16 @@ function MessageBar({}) {
   /* handle submit message */
   const handleSubmit = () => {
     if (!message.trim()) return;
-    console.log("handlemessage", activeChatUser?.waId);
+
     const toWaId = activeChatUser?.waId;
     if (!toWaId) return;
+
     const data = {
       from: activeUser.waId,
       to: toWaId,
       text: message,
     };
-    console.log("submitting data", data);
+
     sendMessage(data, {
       onSuccess: () => {
         setMessage("");

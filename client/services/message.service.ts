@@ -1,5 +1,7 @@
-import { api } from "@/lib/api";
+import api from "@/lib/api";
 import { Message } from "@/types";
+
+const API_BASE = "/api/messages";
 
 export interface IMessagePagination {
   currentPage: number;
@@ -31,7 +33,7 @@ export async function getMessages(
   conversationId: string,
   queries?: { page?: number; limit?: number }
 ) {
-  const res = await api.get(`/api/messages/${conversationId}`, {
+  const res = await api.get(`${API_BASE}/${conversationId}`, {
     params: queries,
   });
   console.log("msgs", res.data);
@@ -40,6 +42,6 @@ export async function getMessages(
 
 // Add (send) a new message
 export async function sendMessage(data: IAddMessageRequest) {
-  const res = await api.post("/api/messages", data);
+  const res = await api.post(API_BASE, data);
   return res.data.data as IAddMessageResponse;
 }

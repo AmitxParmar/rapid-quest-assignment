@@ -13,7 +13,7 @@ import {
 } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
-import { api } from "@/lib/api";
+import api from "@/lib/api";
 
 // Global socket singleton to prevent multiple connections
 let globalSocket: Socket | null = null;

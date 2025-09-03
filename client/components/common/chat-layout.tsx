@@ -2,9 +2,36 @@
 import React from "react";
 import Conversations from "../conversations";
 import { useIsMobile } from "@/hooks/use-mobile";
+import useAuth from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 const ChatLayout = ({ children }: { children: React.ReactNode }) => {
   const isMobile = useIsMobile();
+  const { isAuthenticated, isLoading, isUnauthenticated } = useAuth();
+  const router = useRouter();
+
+  // Handle authentication redirect in useEffect to avoid render-time navigation
+  useEffect(() => {
+    if (isUnauthenticated && !isLoading) {
+      router.push("/login");
+    }
+  }, [isUnauthenticated, isLoading, router]);
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  // Don't render the chat layout if not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <div
       className={

@@ -19,12 +19,15 @@ export const authenticateToken = async (
       return res.status(401).json({
         success: false,
         message: "Access token not provided",
+        code: "ACCESS_TOKEN_MISSING",
       });
     }
 
     // Verify access token
-    const decoded = jwt.verify(accessToken, env.jwtSecret) as { userId: string };
-    
+    const decoded = jwt.verify(accessToken, env.jwtSecret) as {
+      userId: string;
+    };
+
     // Find user
     const user = await User.findById(decoded.userId);
     if (!user) {
@@ -42,13 +45,14 @@ export const authenticateToken = async (
       return res.status(401).json({
         success: false,
         message: "Access token expired",
-        code: "TOKEN_EXPIRED",
+        code: "ACCESS_TOKEN_EXPIRED",
       });
     }
 
     return res.status(403).json({
       success: false,
       message: "Invalid access token",
+      code: "ACCESS_TOKEN_INVALID",
     });
   }
 };
@@ -62,7 +66,9 @@ export const optionalAuth = async (
     const { accessToken } = req.cookies;
 
     if (accessToken) {
-      const decoded = jwt.verify(accessToken, env.jwtSecret) as { userId: string };
+      const decoded = jwt.verify(accessToken, env.jwtSecret) as {
+        userId: string;
+      };
       const user = await User.findById(decoded.userId);
       if (user) {
         req.user = user;

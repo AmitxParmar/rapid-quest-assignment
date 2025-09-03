@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   register as registerUser,
   login as loginUser,
@@ -16,17 +18,22 @@ export const authKeys = {
 };
 
 // Fetch current user profile
-export const useCurrentUser = () => {
+export const useCurrentUser = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: authKeys.user(),
     queryFn: async () => {
       const data = await getProfile();
       return data.user;
     },
-
     retry: false,
-    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 60 * 1000,
+    enabled: options?.enabled !== undefined ? options.enabled : true,
+
     select: (user) => user,
+    // Since we're using cookies, we can always try to fetch the profile
+    // The interceptor will handle token refresh automatically
   });
 };
 
@@ -47,6 +54,7 @@ export const useLogin = () => {
     },
     onSuccess: (data) => {
       if (data.success && data.user) {
+        // Server sets cookies automatically, just update the user data
         queryClient.setQueryData(authKeys.user(), data.user);
         queryClient.invalidateQueries({ queryKey: ["tickets"] });
         queryClient.invalidateQueries({ queryKey: ["kb"] });
@@ -74,6 +82,7 @@ export const useRegister = () => {
     },
     onSuccess: (data) => {
       if (data.success && data.user) {
+        // Server sets cookies automatically, just update the user data
         queryClient.setQueryData(authKeys.user(), data.user);
         queryClient.invalidateQueries({ queryKey: ["tickets"] });
         queryClient.invalidateQueries({ queryKey: ["kb"] });
@@ -89,12 +98,17 @@ export const useLogout = () => {
   return useMutation({
     mutationFn: logoutUser,
     onSuccess: () => {
+      // Server clears cookies automatically, just clear the cache
+      queryClient.clear();
+    },
+    onError: () => {
+      // Even if logout fails on server, clear local state
       queryClient.clear();
     },
   });
 };
 
-// Refresh token mutation
+// Refresh token mutation (can be used manually if needed)
 export const useRefreshToken = () => {
   const queryClient = useQueryClient();
 
@@ -102,7 +116,17 @@ export const useRefreshToken = () => {
     mutationFn: refreshTokenApi,
     onSuccess: (data) => {
       if (data.success && data.user) {
+        // Server sets new cookies automatically, just update the user data
         queryClient.setQueryData(authKeys.user(), data.user);
+      }
+    },
+    onError: (error) => {
+      // If refresh fails, clear everything and redirect to login
+      queryClient.clear();
+
+      // Redirect to login page if in browser
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
       }
     },
   });
@@ -138,22 +162,33 @@ export const useChangePassword = () => {
 /**
  * Custom hook to access authentication state and user information.
  */
-
 const useAuth = () => {
-  // Get guest user from zustand store
-
-  const userQuery = useCurrentUser();
-
+  const router = useRouter();
+  const pathname = usePathname();
+  const isLoginPage = pathname === "/login";
+  const userQuery = useCurrentUser({ enabled: !isLoginPage });
   const isLoading = userQuery.isLoading || userQuery.isFetching;
   const isAuthenticated = !!(userQuery.data && !userQuery.error);
   const isUnauthenticated =
     userQuery.error?.message === "Not authenticated" ||
     (userQuery.error as any)?.response?.status === 401;
 
-  // Fallback: treat as guest
+  // Redirect to login if unauthenticated (401) and not loading
+  useEffect(() => {
+    if (isUnauthenticated && !isLoading && pathname !== "/login") {
+      // Clear any cached data to avoid showing stale state
+      try {
+        if (typeof window !== "undefined") {
+          router.push("/login");
+        }
+      } catch (_) {
+        // no-op
+      }
+    }
+  }, [isUnauthenticated, isLoading, pathname, router]);
+
   return {
     user: userQuery.data,
-
     isAuthenticated,
     isUnauthenticated,
     isLoading,

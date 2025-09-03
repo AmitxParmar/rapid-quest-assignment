@@ -1,32 +1,86 @@
+import { refreshToken } from "@/services/auth.service";
 import axios from "axios";
 
-export const api = axios.create({
+const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  withCredentials: true,
+  withCredentials: true, // important for cookies
 });
 
-// Create the Axios instance with a base URL from environment variables
-/* const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "/api", // Default for local dev
-  headers: {
-    "Content-Type": "application/json",
-  },
-}); */
+let isRefreshing = false;
+let refreshSubscribers: Array<() => void> = [];
 
-// Use an interceptor to add the auth token to every request
-api.interceptors.request.use(
-  (config) => {
-    // Retrieve the token from local storage or your state management solution
-    const token = localStorage.getItem("authToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+const subscribeTokenRefresh = (cb: () => void) => {
+  refreshSubscribers.push(cb);
+};
+
+const onRefreshed = () => {
+  refreshSubscribers.forEach((cb) => cb());
+  refreshSubscribers = [];
+};
+
+// Response interceptor for automatic token refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const { response, config } = error;
+    const requestUrl: string | undefined = config?.url;
+    const isAuthRefreshEndpoint = requestUrl?.includes(
+      "/api/auth/refresh-token"
+    );
+
+    if (response?.status === 401) {
+      // If the refresh call itself failed with 401, redirect immediately
+      if (isAuthRefreshEndpoint) {
+        isRefreshing = false;
+        refreshSubscribers = [];
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+        return Promise.reject(error);
+      }
+
+      if (config._retry) {
+        // Already retried once, do not loop
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        // If already refreshing, subscribe to the refresh completion
+        return new Promise((resolve) => {
+          subscribeTokenRefresh(() => {
+            resolve(api(config));
+          });
+        });
+      }
+
+      config._retry = true;
+      isRefreshing = true;
+
+      try {
+        // Try to refresh the token - server will set new cookies
+        const { data } = await refreshToken();
+        // console.log(data);
+        isRefreshing = false;
+        onRefreshed();
+
+        // Retry the original request with new token
+        return api(config);
+      } catch (err) {
+        isRefreshing = false;
+        refreshSubscribers = [];
+
+        // Refresh failed, redirect to login
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+
+        return Promise.reject(err);
+      }
     }
-    return config;
-  },
-  (error) => {
+
     return Promise.reject(error);
   }
 );

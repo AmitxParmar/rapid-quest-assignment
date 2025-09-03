@@ -28,7 +28,7 @@ export const getContacts = async (
         message: "User not authenticated",
       });
     }
-
+    console.log(req.user.id);
     // Get contacts with populated user data
     const contacts = await Contact.find({
       userId: req.user._id,
@@ -123,8 +123,11 @@ export const addContact = async (
     }
 
     // Find the user to add as contact
+    const normalizeWaId = (id: string) =>
+      id?.startsWith("91") ? id.trim() : `91${id?.trim()}`;
+    const normalizedWaId = normalizeWaId(waId);
     const contactUser = await User.findOne({
-      waId: waId.startsWith("91") ? waId : `91${waId}`,
+      waId: normalizedWaId,
     });
     if (!contactUser) {
       return res.status(404).json({
@@ -133,7 +136,7 @@ export const addContact = async (
       });
     }
 
-    // Check if contact already exists
+    // Check if contact already exists (use compound unique index)
     const existingContact = await Contact.findOne({
       userId: req.user._id,
       contactUserId: contactUser._id,

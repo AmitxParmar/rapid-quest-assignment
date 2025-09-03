@@ -10,6 +10,7 @@ export const useContacts = () => {
     queryKey: ["contacts"],
     queryFn: getContacts,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    select: (data) => data.data,
   });
 };
 

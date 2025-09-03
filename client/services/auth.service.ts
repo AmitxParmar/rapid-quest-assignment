@@ -1,8 +1,10 @@
-import { api } from "@/lib/api";
+import api from "@/lib/api";
+
+const API_BASE = "/api/auth";
 
 // Register a new user
 export async function register(waId: string, name: string, password: string) {
-  const response = await api.post("/api/auth/register", {
+  const response = await api.post(`${API_BASE}/register`, {
     waId,
     name,
     password,
@@ -12,25 +14,25 @@ export async function register(waId: string, name: string, password: string) {
 
 // Login user
 export async function login(waId: string, password: string) {
-  const response = await api.post("/api/auth/login", { waId, password });
+  const response = await api.post(`${API_BASE}/login`, { waId, password });
   return response.data;
 }
 
 // Logout user
 export async function logout() {
-  const response = await api.post("/api/auth/logout");
+  const response = await api.post(`${API_BASE}/logout`);
   return response.data;
 }
 
 // Refresh access token
 export async function refreshToken() {
-  const response = await api.post("/api/auth/refresh-token");
+  const response = await api.post(`${API_BASE}/refresh-token`);
   return response.data;
 }
 
 // Get current authenticated user profile
 export async function getProfile() {
-  const response = await api.get("/api/auth/profile");
+  const response = await api.get(`${API_BASE}/profile`);
   return response.data;
 }
 
@@ -40,7 +42,7 @@ export async function updateProfile(profileData: {
   profilePicture?: string;
   status?: string;
 }) {
-  const response = await api.put("/api/auth/profile", profileData);
+  const response = await api.put(`${API_BASE}/profile`, profileData);
   return response.data;
 }
 
@@ -49,7 +51,7 @@ export async function changePassword(
   currentPassword: string,
   newPassword: string
 ) {
-  const response = await api.put("/api/auth/change-password", {
+  const response = await api.put(`${API_BASE}/change-password`, {
     currentPassword,
     newPassword,
   });

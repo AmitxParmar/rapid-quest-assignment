@@ -11,21 +11,22 @@ export interface IContact extends Document {
 
 const ContactSchema = new Schema<IContact>(
   {
-    userId: { 
-      type: Schema.Types.ObjectId, 
-      ref: "User", 
-      required: true 
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
-    contactUserId: { 
-      type: Schema.Types.ObjectId, 
-      ref: "User", 
-      required: true 
+    contactUserId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
     nickname: { type: String },
     isBlocked: { type: Boolean, default: false },
   },
   {
     timestamps: true,
+    collection: "user_contacts",
   }
 );
 

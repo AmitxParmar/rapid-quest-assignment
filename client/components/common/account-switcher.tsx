@@ -1,22 +1,29 @@
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "../ui/button";
-import { useUserStore } from "@/store/useUserStore";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import useAuth from "@/hooks/useAuth";
+import { useLogout } from "@/hooks/useAuth";
 
 const AccountSwitcher = () => {
-  const { guestUser, setGuestUser, users } = useUserStore();
+  const { user } = useAuth();
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const logoutMutation = useLogout();
+
+  const handleLogout = () => {
+    logoutMutation.mutate(undefined, {
+      onSettled: () => {
+        router.push("/login");
+      },
+    });
+  };
 
   return (
     <DropdownMenu>
@@ -25,32 +32,20 @@ const AccountSwitcher = () => {
           variant="ghost"
           className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-100 transition-colors focus:outline-none focus:ring-0 focus-visible:ring-0"
         >
-          <span>{guestUser?.name || "Select Account"}</span>
+          <span>{user?.name}</span>
           <ChevronDown className="w-4 h-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56">
         <DropdownMenuLabel>Switch Account</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuRadioGroup
-          value={guestUser?.waId}
-          onValueChange={(waId) => {
-            const user = users.find((u) => u.waId === waId);
-            if (user) {
-              setGuestUser(user);
-              // Reset all TanStack Query cache on account switch
-              queryClient.clear();
-              // Clear the URL (remove query and path, go to root)
-              router.push("/", undefined);
-            }
-          }}
+        <DropdownMenuItem
+          onClick={handleLogout}
+          disabled={logoutMutation.isPending}
+          className="text-red-600"
         >
-          {users.map((user) => (
-            <DropdownMenuRadioItem key={user.waId} value={user.waId}>
-              {user.name}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+          <LogOut className="mr-2" /> Logout
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

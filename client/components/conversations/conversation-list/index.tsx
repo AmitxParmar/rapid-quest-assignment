@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import ConversationListItem from "./conversation-list-item";
+import { ConversationListItem } from "./conversation-list-item";
 import { useConversations } from "@/hooks/useConversations";
 import { useUserStore } from "@/store/useUserStore";
 import ContactList from "@/components/contacts-list";
@@ -8,6 +8,7 @@ import ContactList from "@/components/contacts-list";
 const ConversationList = () => {
   const { data: conversations, isLoading, error } = useConversations();
   const isContactListOpen = useUserStore((state) => state.isContactListOpen);
+  console.log("Error Contact List", error);
 
   // If contact list is open, render it instead of conversations
   if (isContactListOpen) {

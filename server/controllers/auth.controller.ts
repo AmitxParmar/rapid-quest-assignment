@@ -202,13 +202,30 @@ export const refreshToken = async (req: Request, res: Response) => {
       return res.status(401).json({
         success: false,
         message: "Refresh token not provided",
+        code: "REFRESH_TOKEN_MISSING",
       });
     }
 
     // Verify refresh token
-    const decoded = jwt.verify(token, env.jwtRefreshSecret as Secret) as {
-      userId: string;
-    };
+    let decoded: { userId: string } | null = null;
+    try {
+      decoded = jwt.verify(token, env.jwtRefreshSecret as Secret) as {
+        userId: string;
+      };
+    } catch (err) {
+      if (err instanceof jwt.TokenExpiredError) {
+        return res.status(401).json({
+          success: false,
+          message: "Refresh token expired",
+          code: "REFRESH_TOKEN_EXPIRED",
+        });
+      }
+      return res.status(403).json({
+        success: false,
+        message: "Invalid refresh token",
+        code: "REFRESH_TOKEN_INVALID",
+      });
+    }
 
     // Find user and check if refresh token matches
     const user = await User.findById(decoded.userId);
@@ -216,6 +233,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       return res.status(403).json({
         success: false,
         message: "Invalid refresh token",
+        code: "REFRESH_TOKEN_MISMATCH",
       });
     }
 
@@ -239,6 +257,15 @@ export const refreshToken = async (req: Request, res: Response) => {
     res.status(200).json({
       success: true,
       message: "Token refreshed successfully",
+      user: {
+        _id: user._id,
+        waId: user.waId,
+        name: user.name,
+        profilePicture: user.profilePicture,
+        status: user.status,
+        isOnline: user.isOnline,
+        lastSeen: user.lastSeen,
+      },
     });
   } catch (error) {
     console.error("Refresh token error:", error);

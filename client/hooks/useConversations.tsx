@@ -2,11 +2,12 @@ import {
   fetchAllConversations,
   markMessagesAsRead,
   getConversationId,
+  deleteConversation,
 } from "@/services/conversations.service";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
-import { api } from "@/lib/api";
+import api from "@/lib/api";
 import { Conversation, User } from "@/types";
 import useAuth from "@/hooks/useAuth";
 
@@ -27,7 +28,7 @@ function getSocket() {
 
 // Fetch all conversations, cache for 1 minute, do not refetch if cached
 export function useConversations() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const qc = useQueryClient();
   const listenerRef = useRef<((conversation: Conversation) => void) | null>(
     null
@@ -43,8 +44,8 @@ export function useConversations() {
   >(null);
 
   useEffect(() => {
-    // Only run in browser and when activeUser is available
-    if (!user?.waId) return;
+    // Only run in browser and when user is authenticated and available
+    if (!isAuthenticated || !user?.waId) return;
 
     const socket = getSocket();
 
@@ -156,14 +157,13 @@ export function useConversations() {
         markAsReadListenerRef.current = null;
       }
     };
-  }, [user?.waId, qc]);
+  }, [user?.waId, isAuthenticated, qc]);
 
   return useQuery({
     queryKey: ["conversations", user?.waId],
     queryFn: () => fetchAllConversations(),
     retry: 2,
-    enabled: !!user?.waId,
-
+    enabled: !!isAuthenticated && !!user?.waId, // Only run when authenticated and user exists
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
@@ -214,18 +214,74 @@ export function useAutoMarkAsRead() {
 }
 
 // Returns a mutation to get or create a conversation ID between two users
-export function useGetConversationId({
-  from,
-  to,
-}: {
-  from: User["waId"];
-  to: User["waId"];
-}) {
+export function useGetConversationId() {
   return useMutation({
-    mutationKey: ["get-conversation-id", from, to],
-    mutationFn: async () => {
-      // Calls the service to get or create the conversation
-      return await getConversationId({ from, to });
+    mutationKey: ["get-conversation-id"],
+    mutationFn: getConversationId,
+  });
+}
+
+// Hook to delete a conversation
+export function useDeleteConversation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      conversationId,
+      deleteType = "soft",
+    }: {
+      conversationId: string;
+      deleteType?: "soft" | "hard";
+    }) => deleteConversation(conversationId, deleteType),
+    onSuccess: (data, { conversationId, deleteType }) => {
+      if (data.success) {
+        if (deleteType === "soft") {
+          // For soft delete, update the conversation in cache
+          queryClient.setQueryData(
+            ["conversations"],
+            (oldData: Conversation[] | undefined) => {
+              if (!oldData) return oldData;
+              return oldData.map((conv) =>
+                conv._id === conversationId
+                  ? { ...conv, isArchived: true }
+                  : conv
+              );
+            }
+          );
+        } else {
+          // For hard delete, remove the conversation from cache
+          queryClient.setQueryData(
+            ["conversations"],
+            (oldData: Conversation[] | undefined) => {
+              if (!oldData) return oldData;
+              return oldData.filter((conv) => conv._id !== conversationId);
+            }
+          );
+        }
+
+        // Also remove from conversations cache for specific user
+        queryClient.setQueryData(
+          ["conversations", data.data.waId],
+          (oldData: Conversation[] | undefined) => {
+            if (!oldData) return oldData;
+            if (deleteType === "soft") {
+              return oldData.map((conv) =>
+                conv._id === conversationId
+                  ? { ...conv, isArchived: true }
+                  : conv
+              );
+            } else {
+              return oldData.filter((conv) => conv._id !== conversationId);
+            }
+          }
+        );
+
+        // Invalidate related queries
+        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        queryClient.invalidateQueries({
+          queryKey: ["messages", conversationId],
+        });
+      }
     },
   });
 }
