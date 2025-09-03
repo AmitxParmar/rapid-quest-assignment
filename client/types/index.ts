@@ -1,3 +1,12 @@
+export type MessagePage = {
+  messages: Message[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalMessages: number;
+    hasMore: boolean;
+  };
+};
 export type Participant = {
   waId: string;
   name: string;

@@ -1,12 +1,20 @@
 import { z } from "zod";
 
+const waIdSchema = z
+  .string()
+  .trim()
+  .refine(
+    (val) =>
+      (/^91\d{10}$/.test(val) && val.length === 12) ||
+      (/^\d{10}$/.test(val) && val.length === 10),
+    {
+      message:
+        "WA ID must be exactly 10 digits, or 12 digits if starting with 91",
+    }
+  );
+
 export const loginSchema = z.object({
-  waId: z
-    .string()
-    .trim()
-    .min(10, "WA ID must be exactly 10 digits")
-    .max(10, "WA ID must be exactly 10 digits")
-    .regex(/^\d{10}$/, "WA ID must be exactly 10 digits"),
+  waId: waIdSchema,
   password: z
     .string()
     .trim()
@@ -17,12 +25,7 @@ export const loginSchema = z.object({
 export type LoginSchema = z.infer<typeof loginSchema>;
 
 export const registerSchema = z.object({
-  waId: z
-    .string()
-    .trim()
-    .min(10, "WA ID must be exactly 10 digits")
-    .max(10, "WA ID must be exactly 10 digits")
-    .regex(/^\d{10}$/, "WA ID must be exactly 10 digits"),
+  waId: waIdSchema,
   name: z
     .string()
     .trim()

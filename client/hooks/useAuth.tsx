@@ -26,10 +26,9 @@ export const useCurrentUser = (options?: { enabled?: boolean }) => {
       const data = await getProfile();
       return data.user;
     },
-    retry: false,
+    retry: 2,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    staleTime: 60 * 1000,
     enabled: options?.enabled !== undefined ? options.enabled : true,
 
     select: (user) => user,

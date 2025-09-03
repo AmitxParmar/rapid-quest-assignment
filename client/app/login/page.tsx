@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 
 const DEMO_ACCOUNTS = [
   { waId: "919937320320", password: "demo123" },
-  { waId: "91123456789", password: "demo123" },
+  { waId: "911234567890", password: "demo123" },
 ];
 
 function LoginPage() {

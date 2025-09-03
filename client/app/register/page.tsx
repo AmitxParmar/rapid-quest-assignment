@@ -29,7 +29,7 @@ function RegisterPage() {
   const onSubmit = (values: RegisterSchema) => {
     const payload = {
       waId: values.waId.replace(/\s+/g, ""),
-      name: values.name.trim(),
+      name: values.name,
       password: values.password.replace(/\s+/g, ""),
     };
     register(payload, {

@@ -3,18 +3,15 @@ import type {
   IAddMessageResponse,
 } from "@/services/message.service";
 import { getMessages, sendMessage } from "@/services/message.service";
-import { useUserStore } from "@/store/useUserStore";
-import { Conversation } from "@/types";
+import { Conversation, Message, MessagePage } from "@/types";
 import {
   useInfiniteQuery,
   useMutation,
-  useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
 import api from "@/lib/api";
-import useAuth from "./useAuth";
 
 // Global socket singleton to prevent multiple connections
 let globalSocket: Socket | null = null;
@@ -58,7 +55,7 @@ export function useMessages(conversationId: string) {
 
     // Create a unique listener for this conversation
     const onMessageCreated = (payload: {
-      message: any;
+      message: Message;
       conversationId: string;
     }) => {
       if (!payload || payload.conversationId !== conversationId) return;
@@ -99,7 +96,7 @@ export function useMessages(conversationId: string) {
           }
         }
 
-        const newPages = oldData.pages.map((page: any, idx: number) => {
+        const newPages = oldData.pages.map((page: MessagePage, idx: number) => {
           if (idx === 0) {
             const oldMessages = Array.isArray(page.messages)
               ? page.messages
@@ -128,7 +125,7 @@ export function useMessages(conversationId: string) {
       messageId: string;
       conversationId: string;
       status: string;
-      message: any;
+      message: Message;
     }) => {
       if (!payload || payload.conversationId !== conversationId) return;
 
@@ -143,9 +140,9 @@ export function useMessages(conversationId: string) {
       qc.setQueryData(["messages", conversationId], (oldData: any) => {
         if (!oldData || !oldData.pages) return oldData;
 
-        const newPages = oldData.pages.map((page: any) => ({
+        const newPages = oldData.pages.map((page: MessagePage) => ({
           ...page,
-          messages: page.messages.map((msg: any) => {
+          messages: page.messages.map((msg: Message) => {
             if (msg._id === payload.messageId) {
               return { ...msg, status: payload.status };
             }
