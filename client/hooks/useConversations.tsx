@@ -5,10 +5,10 @@ import {
   deleteConversation,
 } from "@/services/conversations.service";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { io, type Socket } from "socket.io-client";
 import api from "@/lib/api";
-import { Conversation, User } from "@/types";
+import { Conversation } from "@/types";
 import useAuth from "@/hooks/useAuth";
 
 // Global socket singleton to prevent multiple connections
@@ -92,6 +92,9 @@ export function useConversations() {
     }) => {
       console.log("Socket: messages:marked-as-read received:", payload);
 
+      // Only update if this is for the current user
+      if (payload.waId !== user.waId) return;
+
       // Update the conversations cache with the updated conversation
       qc.setQueryData(
         ["conversations", user.waId],
@@ -117,25 +120,8 @@ export function useConversations() {
         }
       );
 
-      // Also update the messages cache to reflect the read status
-      qc.setQueryData(["messages", payload.conversationId], (oldData: any) => {
-        if (!oldData || !oldData.pages) return oldData;
-
-        const newPages = oldData.pages.map((page: any) => ({
-          ...page,
-          messages: page.messages.map((msg: any) => {
-            if (msg.to === payload.waId && msg.status !== "read") {
-              return { ...msg, status: "read" };
-            }
-            return msg;
-          }),
-        }));
-
-        return {
-          ...oldData,
-          pages: newPages,
-        };
-      });
+      // DON'T update messages cache here to prevent triggering useEffect
+      // The server response will handle the status update
     };
 
     // Store the listener references for cleanup
@@ -173,42 +159,153 @@ export function useConversations() {
 // Hook to mark all messages as read in a conversation
 export function useMarkAsRead(id: string) {
   const queryClient = useQueryClient();
-  return useMutation({
+
+  // Prevent infinite calls by using a ref to track in-flight mutations per conversationId+waId
+  const inFlightRef = useRef<{ [key: string]: boolean }>({});
+
+  const mutation = useMutation<
+    void,
+    unknown,
+    { conversationId: string; waId: string }
+  >({
     mutationKey: ["mark-as-read", id],
-    mutationFn: ({
+    mutationFn: async ({
       conversationId,
       waId,
     }: {
       conversationId: string;
       waId: string;
-    }) => markMessagesAsRead(conversationId, waId),
+    }) => {
+      const key = `${conversationId}:${waId}`;
+      if (inFlightRef.current[key]) {
+        // Already in flight, don't call again
+        return;
+      }
+      inFlightRef.current[key] = true;
+      await markMessagesAsRead(conversationId, waId);
+    },
+    onSuccess: (_, { conversationId, waId }) => {
+      // Update the messages cache directly instead of invalidating to prevent refetch
+      queryClient.setQueryData(["messages", conversationId], (oldData: any) => {
+        if (!oldData || !oldData.pages) return oldData;
 
-    onSuccess: (_, { conversationId }) => {
-      // Optionally, refetch or update the conversation cache after marking as read
-      queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+        const newPages = oldData.pages.map((page: any) => ({
+          ...page,
+          messages: page.messages.map((msg: any) => {
+            if (msg.to === waId && msg.status !== "read") {
+              return { ...msg, status: "read" };
+            }
+            return msg;
+          }),
+        }));
+
+        return {
+          ...oldData,
+          pages: newPages,
+        };
+      });
+
+      // Update conversations cache to reflect unread count changes
+      queryClient.setQueryData(
+        ["conversations", waId],
+        (oldConvo: Conversation[] | undefined) => {
+          if (!oldConvo) return oldConvo;
+
+          return oldConvo.map((convo) => {
+            if (convo._id === conversationId) {
+              return {
+                ...convo,
+                unreadCount: 0, // Reset unread count
+              };
+            }
+            return convo;
+          });
+        }
+      );
+    },
+    onSettled: (_, __, variables) => {
+      // Clear in-flight flag
+      if (variables) {
+        const { conversationId, waId } = variables;
+        const key = `${conversationId}:${waId}`;
+        inFlightRef.current[key] = false;
+      }
     },
   });
+
+  // Wrap mutate to prevent infinite calls for the same conversationId+waId
+  const safeMutate = useCallback(
+    (
+      variables: { conversationId: string; waId: string },
+      options?: Parameters<typeof mutation.mutate>[1]
+    ) => {
+      const key = `${variables.conversationId}:${variables.waId}`;
+      if (inFlightRef.current[key]) {
+        // Already in flight, don't call again
+        return;
+      }
+      mutation.mutate(variables, options);
+    },
+    [mutation]
+  );
+
+  return {
+    ...mutation,
+    mutate: safeMutate,
+  };
 }
 
 // Hook to automatically mark messages as read when conversation is opened
 export function useAutoMarkAsRead() {
   const { user } = useAuth();
   const markAsReadMutation = useMarkAsRead("auto");
+  const isMarkingRef = useRef(false);
+  const lastMarkedRef = useRef<{
+    conversationId: string;
+    timestamp: number;
+  } | null>(null);
 
-  const markConversationAsRead = (conversationId: string) => {
-    if (!user?.waId) return;
+  const markConversationAsRead = useCallback(
+    (conversationId: string) => {
+      if (!user?.waId || isMarkingRef.current) return;
 
-    console.log(
-      "Auto marking messages as read for conversation:",
-      conversationId
-    );
+      // Prevent marking the same conversation within 5 seconds
+      const now = Date.now();
+      if (
+        lastMarkedRef.current?.conversationId === conversationId &&
+        now - lastMarkedRef.current.timestamp < 5000
+      ) {
+        return;
+      }
 
-    markAsReadMutation.mutate({
-      conversationId,
-      waId: user.waId,
-    });
-  };
+      // Prevent if already marked as read (mutation is in progress)
+      if (markAsReadMutation.isPending) return;
+
+      // Prevent if unreadCount is already 0 (optional, but safer)
+      // (You may want to pass unreadCount as an argument for more robust logic.)
+
+      console.log(
+        "Auto marking messages as read for conversation:",
+        conversationId
+      );
+
+      isMarkingRef.current = true;
+      lastMarkedRef.current = { conversationId, timestamp: now };
+
+      markAsReadMutation.mutate(
+        {
+          conversationId,
+          waId: user.waId,
+        },
+        {
+          onSettled: () => {
+            isMarkingRef.current = false;
+          },
+        }
+      );
+    },
+    [user?.waId, markAsReadMutation]
+  );
 
   return { markConversationAsRead, isLoading: markAsReadMutation.isPending };
 }

@@ -55,37 +55,37 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
     }
   }, [conversationId, pagesLength, firstPageMessagesLength]);
 
-  // Extracted dependencies for useEffect to satisfy exhaustive-deps
-  const pages = data?.pages;
-  const activeUserWaId = activeUser?.waId;
+  // Fix: Only call markConversationAsRead when there are unread messages and not fetching, and only once per conversationId
+  const hasMarkedAsReadRef = useRef<Set<string>>(new Set());
 
-  // Auto mark messages as read when conversation is opened and messages are loaded
   useEffect(() => {
-    const shouldMarkAsRead =
-      conversationId && pages && pages.length > 0 && !isFetching;
+    if (
+      !conversationId ||
+      !activeUser?.waId ||
+      !data?.pages ||
+      data.pages.length === 0 ||
+      isFetching ||
+      hasMarkedAsReadRef.current.has(conversationId)
+    ) {
+      return;
+    }
 
-    if (shouldMarkAsRead) {
-      // Check if there are any unread messages for the current user
-      const hasUnreadMessages = pages.some((page) =>
-        page.messages.some(
-          (message) =>
-            message.to === activeUserWaId && message.status !== "read"
-        )
-      );
+    // Check if there are any unread messages for the current user
+    const hasUnreadMessages = data.pages.some((page) =>
+      page.messages.some(
+        (message) => message.to === activeUser.waId && message.status !== "read"
+      )
+    );
 
-      if (hasUnreadMessages) {
-        console.log(
-          "Auto marking messages as read for conversation:",
-          conversationId
-        );
-        markConversationAsRead(conversationId);
-      }
+    if (hasUnreadMessages) {
+      hasMarkedAsReadRef.current.add(conversationId);
+      markConversationAsRead(conversationId);
     }
   }, [
     conversationId,
-    pages,
+    activeUser?.waId,
+    data?.pages,
     isFetching,
-    activeUserWaId,
     markConversationAsRead,
   ]);
 
@@ -128,12 +128,7 @@ function ChatContainer({ conversationId }: { conversationId: string }) {
               <PlusCircle size={18} className="mr-2" />
               Load More
             </>
-          ) : (
-            <>
-              <XCircle size={18} className="mr-2" />
-              No more messages
-            </>
-          )}
+          ) : null}
         </Button>
       </div>
       <div className="flex-1 flex flex-col-reverse justify-start w-full gap-1 px-1 sm:px-8 max-w-full relative z-20">

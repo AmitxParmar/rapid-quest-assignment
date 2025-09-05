@@ -56,12 +56,26 @@ export const register = async (
   res: Response
 ): Promise<Response | void> => {
   try {
-    const { waId, name } = req.body;
+    const { waId, name, password } = req.body;
 
     if (!waId) {
       return res.status(400).json({
         success: false,
         message: "WhatsApp ID is required",
+      });
+    }
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password is required",
+      });
+    }
+
+    if (typeof password !== "string" || password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters long",
       });
     }
 
@@ -81,6 +95,7 @@ export const register = async (
       waId: waId.startsWith("91") ? waId : `91${waId}`,
       name: name || `User ${waId}`,
       isOnline: true,
+      password, // Password will be hashed in User.ts pre-save hook
     });
 
     await user.save();
