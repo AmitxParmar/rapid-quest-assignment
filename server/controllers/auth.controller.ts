@@ -43,6 +43,7 @@ const getCookieOptions = (maxAge: number, nodeEnv?: string): object => {
     secure: envNode === "production",
     sameSite: envNode === "production" ? "none" : "lax",
     maxAge,
+    path: "/", // Ensure cookie is available for all routes
   } as const;
 };
 
