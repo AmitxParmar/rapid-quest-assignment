@@ -33,14 +33,18 @@ const generateTokens = (
 /**
  * Get cookie options for setting JWT cookies.
  * @param {number} maxAge - The max age of the cookie in milliseconds.
+ * @param {string} [nodeEnv] - Optional node environment override.
  * @returns {object} Cookie options.
  */
-const getCookieOptions = (maxAge: number) => ({
-  httpOnly: true,
-  secure: env.nodeEnv === "production",
-  sameSite: "strict" as const,
-  maxAge,
-});
+const getCookieOptions = (maxAge: number, nodeEnv?: string): object => {
+  const envNode = nodeEnv || env.nodeEnv;
+  return {
+    httpOnly: true,
+    secure: envNode === "production",
+    sameSite: envNode === "production" ? "none" : "lax",
+    maxAge,
+  } as const;
+};
 
 /**
  * Register a new user.
