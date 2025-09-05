@@ -8,15 +8,9 @@ import { useEffect } from "react";
 
 const ChatLayout = ({ children }: { children: React.ReactNode }) => {
   const isMobile = useIsMobile();
-  const { isAuthenticated, isLoading, isUnauthenticated } = useAuth();
-  const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuth();
 
   // Handle authentication redirect in useEffect to avoid render-time navigation
-  useEffect(() => {
-    if (isUnauthenticated && !isLoading) {
-      router.push("/login");
-    }
-  }, [isUnauthenticated, isLoading, router]);
 
   // Show loading state while checking authentication
   if (isLoading) {

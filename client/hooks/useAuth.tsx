@@ -37,6 +37,45 @@ export const useCurrentUser = (options?: { enabled?: boolean }) => {
   });
 };
 
+/**
+ * Custom hook to access authentication state and user information.
+ */
+const useAuth = () => {
+  const router = useRouter();
+  const pathname = usePathname();
+  const isLoginPage = pathname === "/login";
+  const userQuery = useCurrentUser({ enabled: !isLoginPage });
+  const isLoading = userQuery.isLoading;
+  const isAuthenticated = !!(userQuery.data && !userQuery.error);
+  const isUnauthenticated =
+    userQuery.error?.message === "Not authenticated" ||
+    (userQuery.error as any)?.response?.status === 401;
+
+  // Redirect to login if unauthenticated (401) and not loading
+  useEffect(() => {
+    if (isUnauthenticated && !isLoading && pathname !== "/login") {
+      // Clear any cached data to avoid showing stale state
+      try {
+        if (typeof window !== "undefined") {
+          router.push("/login");
+        }
+      } catch (_) {
+        // no-op
+      }
+    }
+  }, [isUnauthenticated, isLoading, pathname, router]);
+
+  return {
+    user: userQuery.data as User,
+    isAuthenticated,
+    isUnauthenticated,
+    isLoading,
+    error: userQuery.error ?? null,
+  };
+};
+
+export default useAuth;
+
 // Login mutation
 export const useLogin = () => {
   const queryClient = useQueryClient();
@@ -158,42 +197,3 @@ export const useChangePassword = () => {
     }) => changePassword(currentPassword, newPassword),
   });
 };
-
-/**
- * Custom hook to access authentication state and user information.
- */
-const useAuth = () => {
-  const router = useRouter();
-  const pathname = usePathname();
-  const isLoginPage = pathname === "/login";
-  const userQuery = useCurrentUser({ enabled: !isLoginPage });
-  const isLoading = userQuery.isLoading || userQuery.isFetching;
-  const isAuthenticated = !!(userQuery.data && !userQuery.error);
-  const isUnauthenticated =
-    userQuery.error?.message === "Not authenticated" ||
-    (userQuery.error as any)?.response?.status === 401;
-
-  // Redirect to login if unauthenticated (401) and not loading
-  useEffect(() => {
-    if (isUnauthenticated && !isLoading && pathname !== "/login") {
-      // Clear any cached data to avoid showing stale state
-      try {
-        if (typeof window !== "undefined") {
-          router.push("/login");
-        }
-      } catch (_) {
-        // no-op
-      }
-    }
-  }, [isUnauthenticated, isLoading, pathname, router]);
-
-  return {
-    user: userQuery.data as User,
-    isAuthenticated,
-    isUnauthenticated,
-    isLoading,
-    error: userQuery.error ?? null,
-  };
-};
-
-export default useAuth;

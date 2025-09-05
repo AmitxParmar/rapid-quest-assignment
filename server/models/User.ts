@@ -56,9 +56,6 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-// Index for efficient queries
-userSchema.index({ waId: 1 });
-
 // Method to compare password
 userSchema.methods.comparePassword = async function (
   candidatePassword: string

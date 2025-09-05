@@ -1,31 +1,40 @@
 import { Request, Response } from "express";
-import jwt, { Secret, SignOptions } from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 import { env } from "../config/env";
 import { User, type IUser } from "../models/User";
 
+/**
+ * Express request extended with authenticated user and cookies.
+ */
 interface AuthRequest extends Request {
   user?: IUser;
-  cookies: Record<string, any>;
+  cookies: Record<string, string>;
 }
 
-// Generate JWT tokens
-const generateTokens = (userId: string) => {
-  const accessToken = jwt.sign(
-    { userId },
-    env.jwtSecret as Secret,
-    { expiresIn: env.jwtExpiresIn } as SignOptions
-  );
+/**
+ * Generate JWT access and refresh tokens for a user.
+ * @param {string} userId - The user's unique identifier.
+ * @returns {{ accessToken: string, refreshToken: string }} The generated tokens.
+ */
+const generateTokens = (
+  userId: string
+): { accessToken: string; refreshToken: string } => {
+  const accessToken = jwt.sign({ userId }, env.jwtSecret, {
+    expiresIn: env.jwtExpiresIn,
+  } as SignOptions);
 
-  const refreshToken = jwt.sign(
-    { userId },
-    env.jwtRefreshSecret as Secret,
-    { expiresIn: env.jwtRefreshExpiresIn } as SignOptions
-  );
+  const refreshToken = jwt.sign({ userId }, env.jwtRefreshSecret, {
+    expiresIn: env.jwtRefreshExpiresIn,
+  } as SignOptions);
 
   return { accessToken, refreshToken };
 };
 
-// Set cookie options
+/**
+ * Get cookie options for setting JWT cookies.
+ * @param {number} maxAge - The max age of the cookie in milliseconds.
+ * @returns {object} Cookie options.
+ */
 const getCookieOptions = (maxAge: number) => ({
   httpOnly: true,
   secure: env.nodeEnv === "production",
@@ -33,28 +42,22 @@ const getCookieOptions = (maxAge: number) => ({
   maxAge,
 });
 
-export const register = async (req: Request, res: Response) => {
+/**
+ * Register a new user.
+ * @param {Request} req - Express request object.
+ * @param {Response} res - Express response object.
+ */
+export const register = async (
+  req: Request,
+  res: Response
+): Promise<Response | void> => {
   try {
-    const { waId, name, password } = req.body;
+    const { waId, name } = req.body;
 
     if (!waId) {
       return res.status(400).json({
         success: false,
         message: "WhatsApp ID is required",
-      });
-    }
-
-    if (!password) {
-      return res.status(400).json({
-        success: false,
-        message: "Password is required",
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must be at least 6 characters long",
       });
     }
 
@@ -73,7 +76,6 @@ export const register = async (req: Request, res: Response) => {
     const user = new User({
       waId: waId.startsWith("91") ? waId : `91${waId}`,
       name: name || `User ${waId}`,
-      password,
       isOnline: true,
     });
 
@@ -94,7 +96,7 @@ export const register = async (req: Request, res: Response) => {
       getCookieOptions(7 * 24 * 60 * 60 * 1000)
     ); // 7 days
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "User registered successfully",
       user: {
@@ -108,28 +110,29 @@ export const register = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Registration error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Internal server error",
     });
   }
 };
 
-export const login = async (req: Request, res: Response) => {
+/**
+ * Log in a user.
+ * @param {Request} req - Express request object.
+ * @param {Response} res - Express response object.
+ */
+export const login = async (
+  req: Request,
+  res: Response
+): Promise<Response | void> => {
   try {
-    const { waId, password } = req.body;
+    const { waId } = req.body;
 
     if (!waId) {
       return res.status(400).json({
         success: false,
         message: "WhatsApp ID is required",
-      });
-    }
-
-    if (!password) {
-      return res.status(400).json({
-        success: false,
-        message: "Password is required",
       });
     }
 
@@ -141,15 +144,6 @@ export const login = async (req: Request, res: Response) => {
       return res.status(404).json({
         success: false,
         message: "User not found",
-      });
-    }
-
-    // Verify password
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid password",
       });
     }
 
@@ -172,7 +166,7 @@ export const login = async (req: Request, res: Response) => {
       getCookieOptions(7 * 24 * 60 * 60 * 1000)
     ); // 7 days
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Login successful",
       user: {
@@ -186,46 +180,36 @@ export const login = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Internal server error",
     });
   }
 };
 
-export const refreshToken = async (req: Request, res: Response) => {
+/**
+ * Refresh JWT tokens using a valid refresh token.
+ * @param {Request} req - Express request object.
+ * @param {Response} res - Express response object.
+ */
+export const refreshToken = async (
+  req: Request,
+  res: Response
+): Promise<Response | void> => {
   try {
-    const cookies = req.cookies as { [key: string]: string } | undefined;
-    const token = cookies?.refreshToken;
+    const { refreshToken: token } = req.cookies;
 
     if (!token) {
       return res.status(401).json({
         success: false,
         message: "Refresh token not provided",
-        code: "REFRESH_TOKEN_MISSING",
       });
     }
 
     // Verify refresh token
-    let decoded: { userId: string } | null = null;
-    try {
-      decoded = jwt.verify(token, env.jwtRefreshSecret as Secret) as {
-        userId: string;
-      };
-    } catch (err) {
-      if (err instanceof jwt.TokenExpiredError) {
-        return res.status(401).json({
-          success: false,
-          message: "Refresh token expired",
-          code: "REFRESH_TOKEN_EXPIRED",
-        });
-      }
-      return res.status(403).json({
-        success: false,
-        message: "Invalid refresh token",
-        code: "REFRESH_TOKEN_INVALID",
-      });
-    }
+    const decoded = jwt.verify(token, env.jwtRefreshSecret) as {
+      userId: string;
+    };
 
     // Find user and check if refresh token matches
     const user = await User.findById(decoded.userId);
@@ -233,7 +217,6 @@ export const refreshToken = async (req: Request, res: Response) => {
       return res.status(403).json({
         success: false,
         message: "Invalid refresh token",
-        code: "REFRESH_TOKEN_MISMATCH",
       });
     }
 
@@ -254,36 +237,34 @@ export const refreshToken = async (req: Request, res: Response) => {
       getCookieOptions(7 * 24 * 60 * 60 * 1000)
     ); // 7 days
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Token refreshed successfully",
-      user: {
-        _id: user._id,
-        waId: user.waId,
-        name: user.name,
-        profilePicture: user.profilePicture,
-        status: user.status,
-        isOnline: user.isOnline,
-        lastSeen: user.lastSeen,
-      },
     });
   } catch (error) {
     console.error("Refresh token error:", error);
-    res.status(403).json({
+    return res.status(403).json({
       success: false,
       message: "Invalid refresh token",
     });
   }
 };
 
-export const logout = async (req: AuthRequest, res: Response) => {
+/**
+ * Log out a user and clear their refresh token.
+ * @param {AuthRequest} req - Express request object with user and cookies.
+ * @param {Response} res - Express response object.
+ */
+export const logout = async (
+  req: AuthRequest,
+  res: Response
+): Promise<Response | void> => {
   try {
-    const cookies = req.cookies as { [key: string]: string } | undefined;
-    const token = cookies?.refreshToken;
+    const { refreshToken: token } = req.cookies;
 
     if (token) {
       // Find user and clear refresh token
-      const decoded = jwt.verify(token, env.jwtRefreshSecret as Secret) as {
+      const decoded = jwt.verify(token, env.jwtRefreshSecret) as {
         userId: string;
       };
       const user = await User.findById(decoded.userId);
@@ -300,20 +281,28 @@ export const logout = async (req: AuthRequest, res: Response) => {
     res.clearCookie("accessToken");
     res.clearCookie("refreshToken");
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Logout successful",
     });
   } catch (error) {
     console.error("Logout error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Internal server error",
     });
   }
 };
 
-export const getProfile = async (req: AuthRequest, res: Response) => {
+/**
+ * Get the authenticated user's profile.
+ * @param {AuthRequest} req - Express request object with user.
+ * @param {Response} res - Express response object.
+ */
+export const getProfile = async (
+  req: AuthRequest,
+  res: Response
+): Promise<Response | void> => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -322,10 +311,10 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       user: {
-        _id: req.user._id,
+        id: req.user._id,
         waId: req.user.waId,
         name: req.user.name,
         profilePicture: req.user.profilePicture,
@@ -336,14 +325,22 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error("Get profile error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Internal server error",
     });
   }
 };
 
-export const updateProfile = async (req: AuthRequest, res: Response) => {
+/**
+ * Update the authenticated user's profile.
+ * @param {AuthRequest} req - Express request object with user.
+ * @param {Response} res - Express response object.
+ */
+export const updateProfile = async (
+  req: AuthRequest,
+  res: Response
+): Promise<Response | void> => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -372,7 +369,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Profile updated successfully",
       user: {
@@ -387,14 +384,33 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error("Update profile error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Internal server error",
     });
   }
 };
 
-export const changePassword = async (req: AuthRequest, res: Response) => {
+/**
+ * Update the authenticated user's password.
+ *
+ * This endpoint allows an authenticated user to change their password.
+ *
+ * @param {AuthRequest} req - Express request object with user.
+ * @param {Response} res - Express response object.
+ * @returns {Promise<void>} Returns a JSON response indicating success or failure:
+ *   - 200: { success: true, message: "Password changed successfully" }
+ *   - 400: { success: false, message: "Current password and new password are required" }
+ *   - 400: { success: false, message: "New password must be at least 6 characters long" }
+ *   - 401: { success: false, message: "User not authenticated" }
+ *   - 401: { success: false, message: "Current password is incorrect" }
+ *   - 404: { success: false, message: "User not found" }
+ *   - 500: { success: false, message: "Internal server error" }
+ */
+export const changePassword = async (
+  req: AuthRequest,
+  res: Response
+): Promise<Response | void> => {
   try {
     if (!req.user) {
       return res.status(401).json({
@@ -440,13 +456,13 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
     user.password = newPassword;
     await user.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Password changed successfully",
     });
   } catch (error) {
     console.error("Change password error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Internal server error",
     });
