@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginSchema } from "@/schemas/auth";
+import { AxiosError } from "axios";
 import {
   Form,
   FormField,
@@ -22,15 +23,22 @@ const DEMO_ACCOUNTS = [
   { waId: "911234567890", password: "demo123" },
 ];
 
+interface ApiErrorResponse {
+  message: string;
+}
+
 function LoginPage() {
   const router = useRouter();
   const { mutate: login, isPending, error, data } = useLogin();
+  
+  // handle default form values and form validations
   const form = useForm<LoginSchema>({
     resolver: zodResolver(loginSchema),
     defaultValues: { waId: "", password: "" },
     mode: "onTouched",
   });
 
+  // handle form submission
   const onSubmit = (values: LoginSchema) => {
     const cleaned = {
       waId: values.waId.replace(/\s+/g, ""),
@@ -43,6 +51,8 @@ function LoginPage() {
     });
   };
 
+
+  // handle demo account selection: add demo account to inputs
   const handleDemoClick = (demo: { waId: string; password: string }) => {
     form.setValue("waId", demo.waId, {
       shouldTouch: true,
@@ -52,6 +62,20 @@ function LoginPage() {
       shouldTouch: true,
       shouldValidate: true,
     });
+  };
+
+
+  // get error message from axios.response.data object and return it.
+  const getErrorMessage = () => {
+    if (!error) return null;
+    
+    if (error instanceof AxiosError) {
+      const errorData = error.response?.data as ApiErrorResponse;
+      if (errorData?.message) {
+        return errorData.message;
+    }
+    }
+    return "Login failed";
   };
 
   return (
@@ -116,7 +140,7 @@ function LoginPage() {
             </Button>
             {error && (
               <div className="text-destructive text-sm text-center mt-1">
-                {error instanceof Error ? error.message : "Login failed"}
+                {getErrorMessage()}
               </div>
             )}
             {data && data.success && (

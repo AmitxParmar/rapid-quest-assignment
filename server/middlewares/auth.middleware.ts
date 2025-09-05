@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { User, IUser } from "../models/User";
 import { env } from "../config/env";
+import { clearAuthCookies } from "../utils/cookies";
 
 interface AuthRequest extends Request {
   user?: IUser;
@@ -13,7 +14,17 @@ export const authenticateToken = async (
   next: NextFunction
 ) => {
   try {
-    const { accessToken } = req.cookies;
+    const { accessToken, refreshToken } = req.cookies;
+
+    // Check if both tokens are missing - clear any stale cookies
+    if (!accessToken && !refreshToken) {
+      clearAuthCookies(res);
+      return res.status(401).json({
+        success: false,
+        message: "No authentication tokens provided",
+        code: "ACCESS_TOKEN_MISSING",
+      });
+    }
 
     if (!accessToken) {
       return res.status(401).json({
@@ -31,9 +42,12 @@ export const authenticateToken = async (
     // Find user
     const user = await User.findById(decoded.userId);
     if (!user) {
+      // Clear cookies if user doesn't exist
+      clearAuthCookies(res);
       return res.status(401).json({
         success: false,
         message: "User not found",
+        code: "USER_NOT_FOUND",
       });
     }
 
@@ -49,10 +63,20 @@ export const authenticateToken = async (
       });
     }
 
-    return res.status(403).json({
+    if (error instanceof jwt.JsonWebTokenError) {
+      // Clear cookies on invalid token
+      clearAuthCookies(res);
+      return res.status(401).json({
+        success: false,
+        message: "Invalid access token",
+        code: "ACCESS_TOKEN_INVALID",
+      });
+    }
+
+    return res.status(500).json({
       success: false,
-      message: "Invalid access token",
-      code: "ACCESS_TOKEN_INVALID",
+      message: "Authentication error",
+      code: "AUTH_ERROR",
     });
   }
 };

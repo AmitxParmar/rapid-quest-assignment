@@ -16,16 +16,24 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { AxiosError } from "axios";
+
+interface ApiErrorResponse {
+  message: string;
+}
 
 function RegisterPage() {
   const router = useRouter();
   const { mutate: register, isPending, error, data } = useRegister();
+ 
+  // handle default form values and form validations
   const form = useForm<RegisterSchema>({
     resolver: zodResolver(registerSchema),
     defaultValues: { waId: "", name: "", password: "" },
     mode: "onTouched",
   });
 
+  // handle form submission
   const onSubmit = (values: RegisterSchema) => {
     const payload = {
       waId: values.waId.replace(/\s+/g, ""),
@@ -39,9 +47,22 @@ function RegisterPage() {
     });
   };
 
+  // get error message from axios.response.data object and return it.
+  const getErrorMessage = () => {
+    if (!error) return null;
+    
+    if (error instanceof AxiosError) {
+      const errorData = error.response?.data as ApiErrorResponse;
+      if (errorData?.message) {
+        return errorData.message;
+    }
+    }
+    return "Login failed";
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background transition-colors">
-      <div className="w-full max-w-sm bg-card rounded-xl shadow-lg p-8 flex flex-col items-center border border-border">
+      <div className="w-full max-w-sm bg-card shadow-md rounded-xl p-8 flex flex-col items-center ">
         <div className="flex items-center gap-2 mb-6">
           <div className="rounded-full p-2 bg-primary">
             <svg
@@ -114,11 +135,7 @@ function RegisterPage() {
             </Button>
             {error && (
               <div className="text-destructive text-sm text-center mt-1">
-                {typeof error === "object" &&
-                error !== null &&
-                "message" in error
-                  ? error.message || "Registration failed"
-                  : "Registration failed"}
+                {getErrorMessage()}
               </div>
             )}
             {data && data.success && (

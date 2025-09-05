@@ -27,8 +27,14 @@ api.interceptors.response.use(
     const isAuthRefreshEndpoint = requestUrl?.includes(
       "/api/auth/refresh-token"
     );
+    const errorCode = response?.data?.code;
 
-    if (response?.status === 401) {
+    // Check if this is an authentication error that should trigger token refresh
+    const shouldRefreshToken = 
+      response?.status === 401 && 
+      (errorCode === "ACCESS_TOKEN_EXPIRED" || errorCode === "ACCESS_TOKEN_INVALID");
+
+    if (shouldRefreshToken) {
       // If the refresh call itself failed with 401, redirect immediately
       if (isAuthRefreshEndpoint) {
         isRefreshing = false;
@@ -49,9 +55,9 @@ api.interceptors.response.use(
 
       if (isRefreshing) {
         // If already refreshing, subscribe to the refresh completion
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
           subscribeTokenRefresh(() => {
-            resolve(api(config));
+            api(config).then(resolve).catch(reject);
           });
         });
       }
@@ -62,21 +68,32 @@ api.interceptors.response.use(
       try {
         // Try to refresh the token - server will set new cookies
         await refreshToken();
-        // console.log(data);
         isRefreshing = false;
         onRefreshed();
 
         // Retry the original request with new token
         return api(config);
-      } catch (err) {
+      } catch (refreshError) {
         isRefreshing = false;
         refreshSubscribers = [];
 
         // Refresh failed, redirect to login
         if (typeof window !== "undefined") {
-          /* window.location.href = "/login"; */
+          window.location.href = "/login";
         }
-        return Promise.reject(err);
+        return Promise.reject(refreshError);
+      }
+    }
+
+    // For other authentication errors (missing tokens, user not found, etc.), redirect immediately
+    if (response?.status === 401 && 
+        (errorCode === "ACCESS_TOKEN_MISSING" || 
+         errorCode === "REFRESH_TOKEN_MISSING" ||
+         errorCode === "REFRESH_TOKEN_EXPIRED" ||
+         errorCode === "REFRESH_TOKEN_INVALID" ||
+         errorCode === "USER_NOT_FOUND")) {
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
       }
     }
 

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import jwt, { SignOptions } from "jsonwebtoken";
 import { env } from "../config/env";
 import { User, type IUser } from "../models/User";
+import { clearAuthCookies, setAuthCookies } from "../utils/cookies";
 
 /**
  * Express request extended with authenticated user and cookies.
@@ -30,22 +31,7 @@ const generateTokens = (
   return { accessToken, refreshToken };
 };
 
-/**
- * Get cookie options for setting JWT cookies.
- * @param {number} maxAge - The max age of the cookie in milliseconds.
- * @param {string} [nodeEnv] - Optional node environment override.
- * @returns {object} Cookie options.
- */
-const getCookieOptions = (maxAge: number, nodeEnv?: string): object => {
-  const envNode = nodeEnv || env.nodeEnv;
-  return {
-    httpOnly: true,
-    secure: envNode === "production",
-    sameSite: envNode === "production" ? "none" : "lax",
-    maxAge,
-    path: "/", // Ensure cookie is available for all routes
-  } as const;
-};
+
 
 /**
  * Register a new user.
@@ -109,12 +95,7 @@ export const register = async (
     await user.save();
 
     // Set cookies
-    res.cookie("accessToken", accessToken, getCookieOptions(15 * 60 * 1000)); // 15 minutes
-    res.cookie(
-      "refreshToken",
-      refreshToken,
-      getCookieOptions(7 * 24 * 60 * 60 * 1000)
-    ); // 7 days
+    setAuthCookies(res, accessToken, refreshToken);
 
     return res.status(201).json({
       success: true,
@@ -179,12 +160,7 @@ export const login = async (
     await user.save();
 
     // Set cookies
-    res.cookie("accessToken", accessToken, getCookieOptions(15 * 60 * 1000)); // 15 minutes
-    res.cookie(
-      "refreshToken",
-      refreshToken,
-      getCookieOptions(7 * 24 * 60 * 60 * 1000)
-    ); // 7 days
+    setAuthCookies(res, accessToken, refreshToken);
 
     return res.status(200).json({
       success: true,
@@ -220,9 +196,11 @@ export const refreshToken = async (
     const { refreshToken: token } = req.cookies;
 
     if (!token) {
+      clearAuthCookies(res);
       return res.status(401).json({
         success: false,
         message: "Refresh token not provided",
+        code: "REFRESH_TOKEN_MISSING",
       });
     }
 
@@ -234,9 +212,11 @@ export const refreshToken = async (
     // Find user and check if refresh token matches
     const user = await User.findById(decoded.userId);
     if (!user || user.refreshToken !== token) {
+      clearAuthCookies(res);
       return res.status(403).json({
         success: false,
         message: "Invalid refresh token",
+        code: "REFRESH_TOKEN_INVALID",
       });
     }
 
@@ -250,22 +230,35 @@ export const refreshToken = async (
     await user.save();
 
     // Set new cookies
-    res.cookie("accessToken", accessToken, getCookieOptions(15 * 60 * 1000)); // 15 minutes
-    res.cookie(
-      "refreshToken",
-      newRefreshToken,
-      getCookieOptions(7 * 24 * 60 * 60 * 1000)
-    ); // 7 days
+    setAuthCookies(res, accessToken, newRefreshToken);
 
     return res.status(200).json({
       success: true,
       message: "Token refreshed successfully",
+      user: {
+        id: user._id,
+        waId: user.waId,
+        name: user.name,
+        profilePicture: user.profilePicture,
+        status: user.status,
+        isOnline: user.isOnline,
+        lastSeen: user.lastSeen,
+      },
     });
   } catch (error) {
     console.error("Refresh token error:", error);
+    clearAuthCookies(res);
+    if (error instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({
+        success: false,
+        message: "Refresh token expired",
+        code: "REFRESH_TOKEN_EXPIRED",
+      });
+    }
     return res.status(403).json({
       success: false,
       message: "Invalid refresh token",
+      code: "REFRESH_TOKEN_INVALID",
     });
   }
 };
@@ -283,23 +276,27 @@ export const logout = async (
     const { refreshToken: token } = req.cookies;
 
     if (token) {
-      // Find user and clear refresh token
-      const decoded = jwt.verify(token, env.jwtRefreshSecret) as {
-        userId: string;
-      };
-      const user = await User.findById(decoded.userId);
+      try {
+        // Find user and clear refresh token
+        const decoded = jwt.verify(token, env.jwtRefreshSecret) as {
+          userId: string;
+        };
+        const user = await User.findById(decoded.userId);
 
-      if (user) {
-        user.refreshToken = undefined;
-        user.isOnline = false;
-        user.lastSeen = new Date();
-        await user.save();
+        if (user) {
+          user.refreshToken = undefined;
+          user.isOnline = false;
+          user.lastSeen = new Date();
+          await user.save();
+        }
+      } catch (jwtError) {
+        // Token might be invalid, but we still want to clear cookies
+        console.log("Invalid token during logout, clearing cookies anyway");
       }
     }
 
     // Clear cookies
-    res.clearCookie("accessToken");
-    res.clearCookie("refreshToken");
+    clearAuthCookies(res);
 
     return res.status(200).json({
       success: true,

@@ -26,14 +26,27 @@ export const useCurrentUser = (options?: { enabled?: boolean }) => {
       const data = await getProfile();
       return data.user;
     },
-    retry: 2,
+    retry: (failureCount, error: any) => {
+      // Don't retry on authentication errors
+      const status = error?.response?.status;
+      const code = error?.response?.data?.code;
+      
+      if (status === 401 || 
+          code === "ACCESS_TOKEN_MISSING" || 
+          code === "ACCESS_TOKEN_EXPIRED" || 
+          code === "ACCESS_TOKEN_INVALID" ||
+          code === "REFRESH_TOKEN_MISSING" ||
+          code === "REFRESH_TOKEN_EXPIRED" ||
+          code === "REFRESH_TOKEN_INVALID") {
+        return false;
+      }
+      
+      return failureCount < 2;
+    },
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     enabled: options?.enabled !== undefined ? options.enabled : true,
-
     select: (user) => user,
-    // Since we're using cookies, we can always try to fetch the profile
-    // The interceptor will handle token refresh automatically
   });
 };
 
@@ -47,23 +60,36 @@ const useAuth = () => {
   const userQuery = useCurrentUser({ enabled: !isLoginPage });
   const isLoading = userQuery.isLoading;
   const isAuthenticated = !!(userQuery.data && !userQuery.error);
-  const isUnauthenticated =
-    userQuery.error?.message === "Not authenticated" ||
-    (userQuery.error as any)?.response?.status === 401;
+  
+  // Check for authentication errors
+  const error = userQuery.error as any;
+  const errorStatus = error?.response?.status;
+  const errorCode = error?.response?.data?.code;
+  
+  const isUnauthenticated = 
+    errorStatus === 401 || 
+    errorCode === "ACCESS_TOKEN_MISSING" || 
+    errorCode === "ACCESS_TOKEN_EXPIRED" || 
+    errorCode === "ACCESS_TOKEN_INVALID" ||
+    errorCode === "REFRESH_TOKEN_MISSING" ||
+    errorCode === "REFRESH_TOKEN_EXPIRED" ||
+    errorCode === "REFRESH_TOKEN_INVALID" ||
+    errorCode === "USER_NOT_FOUND";
 
-  // Redirect to login if unauthenticated (401) and not loading
+  // Redirect to login if unauthenticated and not loading
   useEffect(() => {
-    if (isUnauthenticated && !isLoading && pathname !== "/login") {
+    if (isUnauthenticated && !isLoading && !isLoginPage) {
       // Clear any cached data to avoid showing stale state
-      try {
-        if (typeof window !== "undefined") {
+      if (typeof window !== "undefined") {
+        try {
           router.push("/login");
+        } catch (error) {
+          // Fallback to window.location if router fails
+          window.location.href = "/login";
         }
-      } catch (_) {
-        // no-op
       }
     }
-  }, [isUnauthenticated, isLoading, pathname, router]);
+  }, [isUnauthenticated, isLoading, isLoginPage, router]);
 
   return {
     user: userQuery.data as User,
@@ -139,10 +165,18 @@ export const useLogout = () => {
     onSuccess: () => {
       // Server clears cookies automatically, just clear the cache
       queryClient.clear();
+      // Redirect to login page
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
     },
     onError: () => {
       // Even if logout fails on server, clear local state
       queryClient.clear();
+      // Still redirect to login page
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
     },
   });
 };
@@ -159,13 +193,19 @@ export const useRefreshToken = () => {
         queryClient.setQueryData(authKeys.user(), data.user);
       }
     },
-    onError: (error) => {
+    onError: (error: any) => {
       // If refresh fails, clear everything and redirect to login
       queryClient.clear();
 
       // Redirect to login page if in browser
       if (typeof window !== "undefined") {
-        window.location.href = "/login";
+        const errorCode = error?.response?.data?.code;
+        // Only redirect if it's actually an auth error
+        if (errorCode === "REFRESH_TOKEN_MISSING" || 
+            errorCode === "REFRESH_TOKEN_EXPIRED" || 
+            errorCode === "REFRESH_TOKEN_INVALID") {
+          window.location.href = "/login";
+        }
       }
     },
   });
